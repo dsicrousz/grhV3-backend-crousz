@@ -40,8 +40,8 @@ import { LogAggregatorService } from './log-aggregator/log-aggregator.service';
     BullModule.forRootAsync({
       useFactory: async (config: ConfigService) => ({
         connection: {
-          host: config.get('REDIS_HOST'),
-          port: config.get('REDIS_PORT'),
+          host: config.get('REDIS_HOST','redis-17088.c281.us-east-1-2.ec2.cloud.redislabs.com'),
+          port: config.get('REDIS_PORT',17088),
         },
       }),
       inject: [ConfigService],
