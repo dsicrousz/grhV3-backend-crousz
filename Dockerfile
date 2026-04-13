@@ -71,32 +71,3 @@ EXPOSE 3100
 
 # Run the application.
 CMD ["node","dist/main"]
-
-# Base image
-# FROM node:20.17.0
-
-# # Create app directory
-# WORKDIR /usr/src/app
-
-# # A wildcard is used to ensure both package.json AND package-lock.json are copied
-# COPY package*.json ./
-# RUN npm install -g npm
-# RUN npm install -g rimraf
-# # Install app dependencies
-# RUN npm install
-
-# # Bundle app source
-# COPY . .
-# ENV NODE_ENV=production
-# ENV NEST_PORT=3100
-# ENV JWT_SECRET=1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed
-# ENV MONGODB_URL=mongodb+srv://gallis:gallis123@cluster0.5lrik.mongodb.net/grhtest?retryWrites=true&w=majority
-# # Creates a "dist" folder with the production build
-# RUN npm run build
-
-# RUN npm prune
-
-# EXPOSE 3100
-
-# # Start the server using the production build
-# CMD [ "node", "dist/main.js" ]
