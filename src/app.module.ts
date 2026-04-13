@@ -38,12 +38,21 @@ import { LogAggregatorService } from './log-aggregator/log-aggregator.service';
       isGlobal: true, // no need to import into other modules
     }),
     BullModule.forRootAsync({
-      useFactory: async (config: ConfigService) => ({
-        connection: {
-          host: config.get('REDIS_HOST'),
-          port: config.get('REDIS_PORT'),
-        },
-      }),
+      useFactory: async (config: ConfigService) => {
+        const redisUrl = config.get('REDIS_URL');
+        if (redisUrl) {
+          // Handle full Redis URL format (e.g., redis://user:pass@host:port)
+          return { connection: redisUrl };
+        }
+        // Fallback to separate host/port variables
+        return {
+          connection: {
+            host: config.get('REDIS_HOST'),
+            port: config.get('REDIS_PORT'),
+            password: config.get('REDIS_PASSWORD'),
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     ThrottlerModule.forRoot({
