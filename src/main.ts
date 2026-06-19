@@ -3,23 +3,14 @@ import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './packe/http-filter';
 import { ConfigService } from '@nestjs/config';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
 const logger = new Logger('Main');
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create(AppModule);
 
   const config = app.get(ConfigService);
   const allowedOrigins = config.get<string>('FRONTEND_URLS')?.split(',').map(url => url.trim()) || [];
 
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads/',
-    setHeaders: (res) => {
-      res.set('Access-Control-Allow-Origin', allowedOrigins.join(','));
-      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    }
-  });
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,

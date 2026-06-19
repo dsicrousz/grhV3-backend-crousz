@@ -5,14 +5,15 @@ import { AbstractModel } from 'src/packe/abstractmodel';
 import { CreatePieceJointeDto } from './dto/create-piece-jointe.dto';
 import { UpdatePieceJointeDto } from './dto/update-piece-jointe.dto';
 import { PieceJointe, PieceJointeDocument, TypePieceJointe } from './entities/piece-jointe.entity';
-import { unlinkSync, existsSync } from 'fs';
+import { StorageService } from 'src/storage/storage.service';
 
 @Injectable()
 export class PieceJointeService extends AbstractModel<PieceJointe, CreatePieceJointeDto, UpdatePieceJointeDto> {
     private readonly logger = new Logger(PieceJointeService.name);
 
     constructor(
-        @InjectModel(PieceJointe.name) private readonly pieceJointeModel: Model<PieceJointeDocument>
+        @InjectModel(PieceJointe.name) private readonly pieceJointeModel: Model<PieceJointeDocument>,
+        private readonly storageService: StorageService,
     ) {
         super(pieceJointeModel);
     }
@@ -78,9 +79,12 @@ export class PieceJointeService extends AbstractModel<PieceJointe, CreatePieceJo
                 throw new NotFoundException(`Pièce jointe ${id} non trouvée`);
             }
 
-            const filePath = `uploads/documents/${pieceJointe.nom_fichier}`;
-            if (existsSync(filePath)) {
-                unlinkSync(filePath);
+            if (this.storageService.isEnabled()) {
+                try {
+                    await this.storageService.delete(pieceJointe.nom_fichier);
+                } catch (err) {
+                    this.logger.warn(`Impossible de supprimer le fichier S3: ${pieceJointe.nom_fichier}`, err);
+                }
             }
 
             return this.pieceJointeModel.findByIdAndDelete(id);

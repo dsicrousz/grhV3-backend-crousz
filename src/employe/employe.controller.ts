@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete,
-   UseInterceptors,UploadedFile,HttpException, UnauthorizedException, HttpCode} from '@nestjs/common';
+   UseInterceptors,UploadedFile,HttpException} from '@nestjs/common';
 import { EmployeService } from './employe.service';
 import { CreateEmployeDto } from './dto/create-employe.dto';
 import { UpdateEmployeDto } from './dto/update-employe.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { existsSync, unlinkSync } from 'fs';
+import { Roles } from 'src/common/guards';
 
 /**
  * employee controller CRUD 
@@ -14,6 +14,7 @@ import { existsSync, unlinkSync } from 'fs';
  * @typedef {EmployeController}
  */
 @Controller('employe')
+@Roles('admin', 'rh')
 export class EmployeController {
   constructor(private readonly employeService: EmployeService) {}
 
@@ -27,30 +28,14 @@ export class EmployeController {
     return this.employeService.create(createEmployeDto);
   }
 
-  
-  @Post('login')
-  @HttpCode(200)
-  async login(@Body() loginDto: {code:string,pass:string}){
-    const employe = await this.employeService.findByCode(loginDto.code);
-    if(!employe || employe.password !== loginDto.pass){
-      throw new UnauthorizedException();
-    }
-    return employe;
-  }
-
   @Get()
   findAll() {
-    return this.employeService.findAllCdi();
+    return this.employeService.findAll();
   }
 
   @Get("bypointage")
   findAllByPointage() {
     return this.employeService.findAllByPointage();
-  }
-
-  @Get("cdds")
-  findAllCdd() {
-    return this.employeService.findAllCdd();
   }
 
 
@@ -81,21 +66,12 @@ export class EmployeController {
     return this.employeService.update(id, updateEmployeDto);
   }
 
-  @Patch('updatepassword/:id')
-  updatePassword(@Param('id') id: string, @Body() updatepass: {oldPass: string,newPass: string}) {
-    return this.employeService.updatePassword(id, updatepass);
-  }
-
   @Patch('profile/:id')
   @UseInterceptors(FileInterceptor('profile'))
   async updateProfile(@UploadedFile() profile: Express.Multer.File,@Param('id') id: string,@Body() updateEmployeDto: UpdateEmployeDto) {
     if(profile){
       updateEmployeDto.profile  = profile.filename;
-      const em = await this.employeService.update(id,updateEmployeDto);
-      if(em && existsSync("uploads/profiles/" + em.profile)){
-        unlinkSync("uploads/profiles/" + em.profile);
-      }
-      return em;
+      return this.employeService.update(id,updateEmployeDto);
     }
    throw new HttpException("Profile Non Uploade !!",500);
   }

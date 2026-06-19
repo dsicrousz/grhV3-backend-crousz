@@ -4,7 +4,7 @@ import { UpdateLotDto } from './dto/update-lot.dto';
 import { AbstractModel } from 'src/packe/abstractmodel';
 import { Lot, LotDocument, StateLot } from './entities/lot.entity';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 @Injectable()
 export class LotService extends AbstractModel<Lot,CreateLotDto,UpdateLotDto>{
@@ -87,7 +87,8 @@ export class LotService extends AbstractModel<Lot,CreateLotDto,UpdateLotDto>{
         {
           $match: {
             annee,
-            mois: { $lt: mois }
+            mois: { $lt: mois },
+            etat: 'VALIDE',
           }
         },
         {
@@ -99,6 +100,47 @@ export class LotService extends AbstractModel<Lot,CreateLotDto,UpdateLotDto>{
           }
         }
       ]);
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
+
+  async upsertLegacyMany(
+    lots: Array<{
+      _id: Types.ObjectId;
+      libelle: string;
+      debut: string;
+      fin: string;
+      annee: number;
+      mois: number;
+      etat: StateLot | string;
+      isPublished: boolean;
+      url?: string;
+      createdAt?: Date;
+      updatedAt?: Date;
+    }>
+  ) {
+    try {
+      if (!lots.length) {
+        return { matchedCount: 0, modifiedCount: 0, upsertedCount: 0 };
+      }
+
+      const result = await this.lotModel.collection.bulkWrite(
+        lots.map((lot) => ({
+          replaceOne: {
+            filter: { _id: lot._id },
+            replacement: lot,
+            upsert: true,
+          },
+        })),
+        { ordered: false },
+      );
+
+      return {
+        matchedCount: result.matchedCount,
+        modifiedCount: result.modifiedCount,
+        upsertedCount: result.upsertedCount,
+      };
     } catch (error) {
       throw new HttpException(error.message, 500);
     }

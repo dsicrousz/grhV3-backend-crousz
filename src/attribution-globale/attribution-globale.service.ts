@@ -11,4 +11,8 @@ export class AttributionGlobaleService extends AbstractModel<AttributionGlobale,
   constructor(@InjectModel(AttributionGlobale.name) private readonly attributionGlobalModel: Model<AttributionGlobaleDocument>){
     super(attributionGlobalModel);
   }
+
+  async byTypeContrat(type: string) {
+    return this.attributionGlobalModel.find({ type_contrat: type }).exec();
+  }
 }

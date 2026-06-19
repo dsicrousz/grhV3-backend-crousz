@@ -1,34 +1,73 @@
-import { createWriteStream } from 'fs';
+import { Injectable, Logger } from '@nestjs/common';
 import PdfPrinter from 'pdfmake';
 import { Bulletin } from 'src/bulletin/entities/bulletin.entity';
-import { Lot } from '../entities/lot.entity';
+import { Lot } from 'src/lot/entities/lot.entity';
 import { Calcul } from './calcul';
 import { format, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { flatten, round } from 'lodash';
+import { StorageService } from 'src/storage/storage.service';
+import { Readable } from 'stream';
 
 const fonts = {
   TmesNewRoman: {
-    normal: 'src/lot/helpers/font/TimesNewRoman/timesnewroman.ttf',
-    bold: 'src/lot/helpers/font/TimesNewRoman/timesnewromanbold.ttf',
-    italics: 'src/lot/helpers/font/TimesNewRoman/timesnewromanitalic.ttf',
-    bolditalics: 'src/lot/helpers/TimesNewRoman/timesnewromanbolditalic.ttf',
+    normal: 'src/helpers/font/TimesNewRoman/timesnewroman.ttf',
+    bold: 'src/helpers/font/TimesNewRoman/timesnewromanbold.ttf',
+    italics: 'src/helpers/font/TimesNewRoman/timesnewromanitalic.ttf',
+    bolditalics: 'src/helpers/TimesNewRoman/timesnewromanbolditalic.ttf',
   },
   Roboto: {
-    normal: 'src/lot/helpers/font/roboto-font/Roboto-Regular.ttf',
-    bold: 'src/lot/helpers/font/roboto-font/Roboto-Medium.ttf',
-    italics: 'src/lot/helpers/font/roboto-font/Roboto-Italic.ttf',
-    bolditalics: 'src/lot/helpers/font/font/Roboto-MediumItalic.ttf',
+    normal: 'src/helpers/font/roboto-font/Roboto-Regular.ttf',
+    bold: 'src/helpers/font/roboto-font/Roboto-Medium.ttf',
+    italics: 'src/helpers/font/roboto-font/Roboto-Italic.ttf',
+    bolditalics: 'src/helpers/font/font/Roboto-MediumItalic.ttf',
   },
 };
 
 const formatNumber = (n: number) =>
   String(n).replace(/(.)(?=(\d{3})+$)/g, '$1 ');
 
+@Injectable()
 export class PdfMaker {
   private printer = new PdfPrinter(fonts);
+  private readonly logger = new Logger(PdfMaker.name);
 
-  make(bulletin: Bulletin, olds: Bulletin[], lot: Lot) {
+  constructor(private readonly storageService: StorageService) {}
+
+  /**
+   * Upload un PDF vers S3 et retourne la clé (chemin relatif)
+   */
+  private async uploadPdf(pdfDoc: PDFKit.PDFDocument, key: string): Promise<string> {
+    if (this.storageService.isEnabled()) {
+      const chunks: Buffer[] = [];
+      const stream = new Readable({
+        read() {}
+      });
+
+      pdfDoc.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+        stream.push(chunk);
+      });
+      pdfDoc.on('end', () => {
+        stream.push(null);
+      });
+
+      pdfDoc.end();
+
+      const uploaded = await this.storageService.upload(key, stream, 'application/pdf');
+      this.logger.log(`Bulletin uploadé: ${key}`);
+      return uploaded.key;
+    } else {
+      // Fallback vers stockage local
+      const { createWriteStream } = await import('fs');
+      const filePath = `uploads/${key}`;
+      pdfDoc.pipe(createWriteStream(filePath));
+      pdfDoc.end();
+      return filePath;
+    }
+  }
+
+  async make(bulletin: Bulletin, olds: Bulletin[], lot: Lot, contrat?: any) {
     const { mois, annee, debut, fin, etat, _id: idlot } = lot;
     const employe = bulletin['employe'] as any;
     const cal = new Calcul();
@@ -84,7 +123,7 @@ export class PdfMaker {
                   alignment: 'center',
                 },
                 {
-                  image: 'src/lot/helpers/drapeau.jpg',
+                  image: 'src/helpers/drapeau.jpg',
                   width: 40,
                   alignment: 'center',
                 },
@@ -129,7 +168,7 @@ export class PdfMaker {
               alignment: 'right',
               stack: [
                 {
-                  image: 'src/lot/helpers/logo.png',
+                  image: 'src/helpers/logo.png',
                   width: 80,
                   margin: [10, 2],
                 },
@@ -186,19 +225,19 @@ export class PdfMaker {
                   ],
                   [
                     { text: 'Matricule de Solde :', style: 'info' },
-                    { text: `${employe.matricule_de_solde}`, fontSize: 6 },
+                    { text: `${contrat?.matricule_de_solde || 'N/A'}`, fontSize: 6 },
                   ],
                   [
                     { text: 'Emploi :', style: 'info' },
-                    { text: `${employe.poste}`, fontSize: 6 },
+                    { text: `${contrat?.poste?.nom || 'N/A'}`, fontSize: 6 },
                   ],
                   [
                     { text: 'Nombre de parts :', style: 'info' },
-                    { text: `${employe.nombre_de_parts}`, fontSize: 6 },
+                    { text: `${contrat?.nombre_de_parts || 'N/A'}`, fontSize: 6 },
                   ],
                   [
                     { text: 'Contrat :', style: 'info' },
-                    { text: `${employe.type}`, fontSize: 6 },
+                    { text: `${contrat?.type || 'N/A'}`, fontSize: 6 },
                   ],
                 ],
               },
@@ -211,7 +250,7 @@ export class PdfMaker {
                 body: [
                   [
                     { text: 'Catégorie :', style: 'info' },
-                    { text: `${employe.categorie.code}`, fontSize: 6 },
+                    { text: `${contrat?.categorie?.code || 'N/A'}`, fontSize: 6 },
                   ],
                   [
                     { text: 'Coefficient Horaire :', style: 'info' },
@@ -220,22 +259,18 @@ export class PdfMaker {
                   [
                     { text: 'Ancienneté :', style: 'info' },
                     {
-                      text: cal.getAnciennete(employe.date_de_recrutement),
+                      text: contrat?.date_debut ? cal.getAnciennete(new Date(contrat.date_debut).toISOString().split('T')[0]) : 'N/A',
                       fontSize: 6,
                     },
                   ],
                   [
                     { text: 'Date de Recrutement :', style: 'info' },
                     {
-                      text: format(
-                        parse(
-                          employe.date_de_recrutement,
-                          'yyyy-MM-dd',
-                          new Date(),
-                        ),
+                      text: contrat?.date_debut ? format(
+                        new Date(contrat.date_debut),
                         'dd MMMM yyyy',
                         { locale: fr },
-                      ),
+                      ) : 'N/A',
                       fontSize: 6,
                     },
                   ],
@@ -245,9 +280,13 @@ export class PdfMaker {
           ],
         },
         {
-          margin: [2, 5, 0, 0],
+          margin: [2, 2, 0, 0],
           alignment: 'center',
           fillColor: 'white',
+          layout: {
+            paddingTop: () => 0,
+            paddingBottom: () => 0,
+          },
           table: {
             widths: ['*', 150, '*', '*', '*', 5, 50, '*'],
             body: [
@@ -281,11 +320,13 @@ export class PdfMaker {
           },
         },
         {
-          margin: [2, 0, 0, 2],
+          margin: [2, 0, 0, 1],
           layout: {
             fillColor: (i, node) => {
               return i % 2 === 0 ? '#f5f5dc' : 'white';
             },
+            paddingTop: () => 0,
+            paddingBottom: () => 0,
           },
           table: {
             widths: ['*', 150, '*', '*', '*', 5, 50, '*'],
@@ -430,11 +471,13 @@ export class PdfMaker {
           },
         },
         {
-          margin: [2, 0, 0, 2],
+          margin: [2, 0, 0, 1],
           layout: {
             fillColor: (i, node) => {
               return i % 2 === 0 ? '#f5f5dc' : 'white';
             },
+            paddingTop: () => 0,
+            paddingBottom: () => 0,
           },
           table: {
             widths: ['*', 150, '*', '*', '*', 5, 50, '*'],
@@ -567,11 +610,13 @@ export class PdfMaker {
           },
         },
         {
-          margin: [2, 0, 0, 2],
+          margin: [2, 0, 0, 1],
           layout: {
             fillColor: (i, node) => {
               return i % 2 === 0 ? '#f5f5dc' : 'white';
             },
+            paddingTop: () => 0,
+            paddingBottom: () => 0,
           },
           table: {
             widths: ['*', 150, '*', '*', '*', 5, 50, '*'],
@@ -700,7 +745,7 @@ export class PdfMaker {
           },
         },
         {
-          margin: [2, 0, 0, 2],
+          margin: [2, 0, 0, 1],
           table: {
             widths: ['*', '*', '*', '*', '*', 80],
             headerRows: 1,
@@ -747,55 +792,261 @@ export class PdfMaker {
           bold: true,
           alignment: 'center',
           fontSize: 6,
+          lineHeight: 0.8,
         },
         header2: {
           alignment: 'right',
           fontSize: 6,
           bold: true,
+          lineHeight: 0.8,
         },
         nombre: {
           alignment: 'right',
           fontSize: 6,
           bold: true,
+          lineHeight: 0.8,
         },
         info: {
           fontSize: 6,
+          lineHeight: 0.8,
         },
         header3: {
           fillColor: '#fac66b',
           bold: true,
           alignment: 'center',
           fontSize: 6,
+          lineHeight: 0.8,
         },
         header4: {
           fillColor: '#fac66b',
           bold: true,
           alignment: 'right',
           fontSize: 6,
+          lineHeight: 0.8,
         },
         total: {
           bold: true,
           fontSize: 6,
           fillColor: '#fac66b',
           alignment: 'center',
+          lineHeight: 0.8,
         },
         anotherStyle: {
           italics: true,
           alignment: 'right',
+          lineHeight: 0.8,
         },
       },
     };
     const pdfDoc = this.printer.createPdfKitDocument(docDefinition as any);
-    pdfDoc.pipe(
-      createWriteStream(
-        `uploads/bulletins/${idlot}-${employe._id}-${mois}-${annee}.pdf`,
-      ),
-    );
-    pdfDoc.end();
-    return `uploads/bulletins/${idlot}-${employe._id}-${mois}-${annee}.pdf`;
+    const key = `bulletins/${idlot}-${employe._id}-${mois}-${annee}.pdf`;
+    return await this.uploadPdf(pdfDoc, key);
   }
 
-  makeAll(
+
+
+  async makeCDD(bulletin: Bulletin, lot: Lot, contrat?: any) {
+    const { mois, annee, debut, fin, etat, _id: idlot } = lot;
+    const employe = bulletin['employe'] as any;
+    const debutStr = format(parse(debut, 'yyyy-MM-dd', new Date()), 'dd', { locale: fr });
+    const finStr = format(parse(fin, 'yyyy-MM-dd', new Date()), 'dd MMMM yyyy', { locale: fr }).toUpperCase();
+    const wm = etat === 'VALIDE' ? annee : 'BROUILLON';
+
+    const gains = (bulletin.lignes as any)?.gains ?? [];
+    const retenues = (bulletin.lignes as any)?.retenues ?? [];
+
+    const gainRows = gains.map((g: any) => [
+      { text: g.rubrique?.libelle ?? '', fontSize: 8 },
+      { text: formatNumber(round(g.montant || 0)), fontSize: 8 },
+    ]);
+    const retenueRows = retenues.map((r: any) => [
+      { text: r.rubrique?.libelle ?? '', fontSize: 8 },
+      { text: formatNumber(round(r.montant || 0)), fontSize: 8 },
+    ]);
+
+    const totalGains = round((bulletin.totalIm || 0) + (bulletin.totalNI || 0));
+
+    const docDefinition = {
+      footer: function () {
+        return {
+          text: 'DANS VOTRE INTERET ET POUR VOUS AIDER A FAIRE VALOIR VOS DROITS, CONSERVER CE BULLETIN DE PAIE SANS LIMITATION DE DUREE',
+          fontSize: 6,
+          alignment: 'center' as const,
+          italics: true,
+        };
+      },
+      watermark: {
+        text: `Bulletin CROUS/Z ${wm}`,
+        color: etat === 'VALIDE' ? 'grey' : 'red',
+        opacity: 0.1,
+        bold: true,
+        italics: false,
+      },
+      content: [
+        {
+          columns: [
+            {
+              width: '50%',
+              alignment: 'left',
+              stack: [
+                {
+                  text: 'REPUBLIQUE DU SENEGAL\n',
+                  fontSize: 6,
+                  bold: true,
+                  alignment: 'center',
+                },
+                {
+                  text: 'Un Peuple, Un but, Une Foi\n',
+                  fontSize: 6,
+                  bold: true,
+                  margin: [0, 2],
+                  alignment: 'center',
+                },
+                {
+                  image: 'src/helpers/drapeau.jpg',
+                  width: 40,
+                  alignment: 'center',
+                },
+                {
+                  text: "MINISTERE DE L'ENSEIGNEMENT SUPERIEUR\n",
+                  fontSize: 6,
+                  bold: true,
+                  margin: [0, 2],
+                  alignment: 'center',
+                },
+                {
+                  text: "DE LA RECHERCHE ET DE L'INNOVATION\n",
+                  fontSize: 6,
+                  bold: true,
+                  alignment: 'center',
+                },
+                {
+                  text: 'CENTRE REGIONAL DES OEUVRES UNIVERSITAIRES',
+                  fontSize: 6,
+                  bold: true,
+                  margin: [0, 2],
+                  alignment: 'center',
+                },
+                {
+                  text: 'SOCIALES DE ZIGUINCHOR',
+                  fontSize: 6,
+                  bold: true,
+                  alignment: 'center',
+                },
+              ],
+            },
+            {
+              width: '50%',
+              alignment: 'center',
+              stack: [
+                {
+                  image: 'src/helpers/logo.png',
+                  width: 80,
+                  margin: [10, 2],
+                },
+                {
+                  text: `Du ${debutStr} Au ${finStr}`,
+                  fontSize: 6,
+                  bold: true,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          margin: [6, 15],
+          fillColor: '#fac66b',
+          alignment: 'center',
+          layout: 'noBorders',
+          table: {
+            widths: ['*'],
+            body: [ 
+              [
+                {
+                  text: 'BULLETIN DE PAIE',
+                  fontSize: 12,
+                  bold: true,
+                  alignment: 'center',
+                },
+              ],
+            ],
+          },
+        },
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              [
+                { text: `Prénoms: ${employe?.prenom ?? ''}`, fontSize: 9 },
+                { text: `Période: ${debutStr} au ${finStr}`, fontSize: 9, bold: true },
+              ],
+              [
+                { text: `Nom: ${employe?.nom ?? ''}`, fontSize: 9, colSpan: 2 },
+                {},
+              ],
+              [
+                { text: `Emploi : CDD `, fontSize: 9, bold: true, colSpan: 2 },
+                {},
+              ],
+            ],
+          },
+          margin: [0, 0, 0, 10],
+        },
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              [
+                { text: 'Gains', bold: true, fontSize: 9 },
+                { text: 'Montant', bold: true, fontSize: 9, alignment: 'right' },
+              ],
+              ...gainRows.map(([libelle, montant]: any[]) => [libelle, { ...montant, alignment: 'right' }]),
+              [
+                { text: 'Total:', bold: true, fontSize: 9 },
+                { text: formatNumber(totalGains), bold: true, fontSize: 9, alignment: 'right' },
+              ],
+            ],
+          },
+          margin: [0, 0, 0, 10],
+        },
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              [
+                { text: 'Retenues', bold: true, fontSize: 9 },
+                { text: 'Montant', bold: true, fontSize: 9, alignment: 'right' },
+              ],
+              ...retenueRows.map(([libelle, montant]: any[]) => [libelle, { ...montant, alignment: 'right' }]),
+              [
+                { text: 'Total Retenues:', bold: true, fontSize: 9 },
+                { text: formatNumber(round(bulletin.totalRet || 0)), bold: true, fontSize: 9, alignment: 'right' },
+              ],
+            ],
+          },
+          margin: [0, 0, 0, 10],
+        },
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              [
+                { text: 'Net A Payer:', bold: true, fontSize: 10 },
+                { text: formatNumber(round(bulletin.nap || 0)), bold: true, fontSize: 10, alignment: 'right' },
+              ],
+            ],
+          },
+        },
+      ],
+      defaultStyle: { font: 'Roboto' },
+    };
+
+    const pdfDoc = this.printer.createPdfKitDocument(docDefinition as any);
+    const key = `bulletins/cdd/${idlot}-${employe._id}-${mois}-${annee}.pdf`;
+    return await this.uploadPdf(pdfDoc, key);
+  }
+
+  async makeAll(
     bulletins: Bulletin[],
     lot: Lot,
     prevR: Lot[] | null,
@@ -829,41 +1080,49 @@ export class PdfMaker {
           bold: true,
           alignment: 'center',
           fontSize: 6,
+          lineHeight: 0.8,
         },
         header2: {
           alignment: 'right',
           fontSize: 6,
           bold: true,
+          lineHeight: 0.8,
         },
         nombre: {
           alignment: 'right',
           fontSize: 6,
           bold: true,
+          lineHeight: 0.8,
         },
         info: {
           fontSize: 6,
+          lineHeight: 0.8,
         },
         header3: {
           fillColor: '#fac66b',
           bold: true,
           alignment: 'center',
           fontSize: 6,
+          lineHeight: 0.8,
         },
         header4: {
           fillColor: '#fac66b',
           bold: true,
           alignment: 'right',
           fontSize: 6,
+          lineHeight: 0.8,
         },
         total: {
           bold: true,
           fontSize: 6,
           fillColor: '#fac66b',
           alignment: 'center',
+          lineHeight: 0.8,
         },
         anotherStyle: {
           italics: true,
           alignment: 'right',
+          lineHeight: 0.8,
         },
       },
     };
@@ -872,9 +1131,9 @@ export class PdfMaker {
         grandeLigne.push({
           nom: `${bulletin.employe['nom']}`,
           prenom: `${bulletin.employe['prenom']}`,
-          mats: `${bulletin.employe['matricule_de_solde']}`,
-          fonc: `${bulletin.employe['poste']}`,
-          cat: `${bulletin.employe['categorie'].code}`,
+          mats: `${bulletin['contrat_actif']?.matricule_de_solde || 'N/A'}`,
+          fonc: `${bulletin['contrat_actif']?.poste?.nom || 'N/A'}`,
+          cat: `${bulletin['contrat_actif']?.categorie?.code || 'N/A'}`,
           brut: `${bulletin.totalIm}`,
           retenues: `${bulletin.totalRet}`,
           pp: `${bulletin.totalPP}`,
@@ -883,9 +1142,15 @@ export class PdfMaker {
           brutGlobale: gl.totalIm + gl.totalNI + gl.totalPP,
         });
 
+        const currentEmpId = (bulletin.employe as any)?._id?.toString() ?? (bulletin.employe as any)?.toString();
         const olds = [];
         prevR.forEach((r:any) => {
-          olds.push(r?.bulletins?.filter(({employe}:any) => employe._id.toString() === bulletin.employe['_id'].toString()) ?? [])
+          olds.push(
+            r?.bulletins?.filter(({ employe }: any) => {
+              const prevEmpId = employe?._id?.toString() ?? employe?.toString();
+              return prevEmpId === currentEmpId;
+            }) ?? []
+          );
         })
 
         const { debut, fin } = lot as Lot;
@@ -928,7 +1193,7 @@ export class PdfMaker {
                     alignment: 'center',
                   },
                   {
-                    image: 'src/lot/helpers/drapeau.jpg',
+                    image: 'src/helpers/drapeau.jpg',
                     width: 40,
                     alignment: 'center',
                   },
@@ -971,7 +1236,7 @@ export class PdfMaker {
                 alignment: 'right',
                 stack: [
                   {
-                    image: 'src/lot/helpers/logo.png',
+                    image: 'src/helpers/logo.png',
                     width: 80,
                     margin: [10, 2],
                   },
@@ -1028,19 +1293,19 @@ export class PdfMaker {
                     ],
                     [
                       { text: 'Matricule de Solde :', style: 'info' },
-                      { text: `${employe.matricule_de_solde}`, fontSize: 6 },
+                      { text: `${bulletin['contrat_actif']?.matricule_de_solde || 'N/A'}`, fontSize: 6 },
                     ],
                     [
                       { text: 'Emploi :', style: 'info' },
-                      { text: `${employe.poste}`, fontSize: 6 },
+                      { text: `${bulletin['contrat_actif']?.poste?.nom || 'N/A'}`, fontSize: 6 },
                     ],
                     [
                       { text: 'Nombre de parts :', style: 'info' },
-                      { text: `${employe.nombre_de_parts}`, fontSize: 6 },
+                      { text: `${bulletin['contrat_actif']?.nombre_de_parts || 'N/A'}`, fontSize: 6 },
                     ],
                     [
                       { text: 'Contrat :', style: 'info' },
-                      { text: `${employe.type}`, fontSize: 6 },
+                      { text: `${bulletin['contrat_actif']?.type || 'N/A'}`, fontSize: 6 },
                     ],
                   ],
                 },
@@ -1053,7 +1318,7 @@ export class PdfMaker {
                   body: [
                     [
                       { text: 'Catégorie :', style: 'info' },
-                      { text: `${employe.categorie.code}`, fontSize: 6 },
+                      { text: `${bulletin['contrat_actif']?.categorie?.code || 'N/A'}`, fontSize: 6 },
                     ],
                     [
                       { text: 'Coefficient Horaire :', style: 'info' },
@@ -1062,22 +1327,18 @@ export class PdfMaker {
                     [
                       { text: 'Ancienneté :', style: 'info' },
                       {
-                        text: cal.getAnciennete(employe.date_de_recrutement),
+                        text: bulletin['contrat_actif']?.date_debut ? cal.getAnciennete(new Date(bulletin['contrat_actif'].date_debut).toISOString().split('T')[0]) : 'N/A',
                         fontSize: 6,
                       },
                     ],
                     [
                       { text: 'Date de Recrutement :', style: 'info' },
                       {
-                        text: format(
-                          parse(
-                            employe.date_de_recrutement,
-                            'yyyy-MM-dd',
-                            new Date(),
-                          ),
+                        text: bulletin['contrat_actif']?.date_debut ? format(
+                          new Date(bulletin['contrat_actif'].date_debut),
                           'dd MMMM yyyy',
                           { locale: fr },
-                        ),
+                        ) : 'N/A',
                         fontSize: 6,
                       },
                     ],
@@ -1087,7 +1348,7 @@ export class PdfMaker {
             ],
           },
           {
-            margin: [2, 0, 0, 2],
+            margin: [2, 0, 0, 1],
             alignment: 'center',
             fillColor: 'white',
             table: {
@@ -1128,6 +1389,8 @@ export class PdfMaker {
               fillColor: (i, node) => {
                 return i % 2 === 0 ? '#f5f5dc' : 'white';
               },
+              paddingTop: () => 0,
+              paddingBottom: () => 0,
             },
             table: {
               widths: ['*', 150, '*', '*', '*', 5, 50, '*'],
@@ -1275,6 +1538,8 @@ export class PdfMaker {
               fillColor: (i, node) => {
                 return i % 2 === 0 ? '#f5f5dc' : 'white';
               },
+              paddingTop: () => 0,
+              paddingBottom: () => 0,
             },
             table: {
               widths: ['*', 150, '*', '*', '*', 5, 50, '*'],
@@ -1408,6 +1673,8 @@ export class PdfMaker {
               fillColor: (i, node) => {
                 return i % 2 === 0 ? '#f5f5dc' : 'white';
               },
+              paddingTop: () => 0,
+              paddingBottom: () => 0,
             },
             table: {
               widths: ['*', 150, '*', '*', '*', 5, 50, '*'],
@@ -1536,7 +1803,7 @@ export class PdfMaker {
             },
           },
           {
-            margin: [2, 0, 0, 2],
+            margin: [2, 0, 0, 1],
             pageBreak: 'after',
             table: {
               widths: ['*', '*', '*', '*', '*', 80],
@@ -1626,7 +1893,7 @@ export class PdfMaker {
                 alignment: 'center',
               },
               {
-                image: 'src/lot/helpers/drapeau.jpg',
+                image: 'src/helpers/drapeau.jpg',
                 width: 40,
                 alignment: 'center',
               },
@@ -1663,7 +1930,7 @@ export class PdfMaker {
             alignment: 'right',
             stack: [
               {
-                image: 'src/lot/helpers/logo.png',
+                image: 'src/helpers/logo.png',
                 width: 100,
                 margin: [10, 2],
               },
@@ -1705,7 +1972,7 @@ export class PdfMaker {
         },
       },
       {
-        margin: [2, 0, 0, 2],
+        margin: [2, 0, 0, 1],
         layout: {
           fillColor: (i, node) => {
             return i % 2 === 0 ? '#f5f5dc' : 'white';
@@ -1794,7 +2061,7 @@ export class PdfMaker {
                 alignment: 'center',
               },
               {
-                image: 'src/lot/helpers/drapeau.jpg',
+                image: 'src/helpers/drapeau.jpg',
                 width: 40,
                 alignment: 'center',
               },
@@ -1831,7 +2098,7 @@ export class PdfMaker {
             alignment: 'right',
             stack: [
               {
-                image: 'src/lot/helpers/logo.png',
+                image: 'src/helpers/logo.png',
                 width: 100,
                 margin: [10, 2],
               },
@@ -1873,7 +2140,7 @@ export class PdfMaker {
         },
       },
       {
-        margin: [2, 0, 0, 2],
+        margin: [2, 0, 0, 1],
         layout: {
           fillColor: (i, node) => {
             return i % 2 === 0 ? '#f5f5dc' : 'white';
@@ -1938,7 +2205,7 @@ export class PdfMaker {
                 alignment: 'center',
               },
               {
-                image: 'src/lot/helpers/drapeau.jpg',
+                image: 'src/helpers/drapeau.jpg',
                 width: 40,
                 alignment: 'center',
               },
@@ -1975,7 +2242,7 @@ export class PdfMaker {
             alignment: 'right',
             stack: [
               {
-                image: 'src/lot/helpers/logo.png',
+                image: 'src/helpers/logo.png',
                 width: 100,
                 margin: [10, 2],
               },
@@ -2017,7 +2284,7 @@ export class PdfMaker {
         },
       },
       {
-        margin: [2, 0, 0, 2],
+        margin: [2, 0, 0, 1],
         layout: {
           fillColor: (i, node) => {
             return i % 2 === 0 ? '#f5f5dc' : 'white';
@@ -2066,11 +2333,11 @@ export class PdfMaker {
     const IMPSR = [];
     const FNR = [];
     bulletins.forEach((b) => {
-      const l = { employe: null, ligne: null };
-      const l2 = { employe: null, ligne: null };
-      const l3 = { employe: null, at: null, af: null };
-      const l4 = { employe: null, imp: null, trf: null };
-      const l5 = { employe: null, ligne: null };
+      const l = { employe: null, ligne: null, contrat_actif: b['contrat_actif'] };
+      const l2 = { employe: null, ligne: null, contrat_actif: b['contrat_actif'] };
+      const l3 = { employe: null, at: null, af: null, contrat_actif: b['contrat_actif'] };
+      const l4 = { employe: null, imp: null, trf: null, contrat_actif: b['contrat_actif'] };
+      const l5 = { employe: null, ligne: null, contrat_actif: b['contrat_actif'] };
       l.employe = b.employe;
       l2.employe = b.employe;
       l3.employe = b.employe;
@@ -2186,7 +2453,7 @@ export class PdfMaker {
                 alignment: 'center',
               },
               {
-                image: 'src/lot/helpers/drapeau.jpg',
+                image: 'src/helpers/drapeau.jpg',
                 width: 40,
                 alignment: 'center',
               },
@@ -2223,7 +2490,7 @@ export class PdfMaker {
             alignment: 'right',
             stack: [
               {
-                image: 'src/lot/helpers/logo.png',
+                image: 'src/helpers/logo.png',
                 width: 100,
                 margin: [10, 2],
               },
@@ -2331,7 +2598,7 @@ export class PdfMaker {
                 return [
                   { text: i + 1, style: 'header2' },
                   {
-                    text: `${a.employe.matricule_de_solde}|${a.employe.prenom} ${a.employe.nom}`,
+                    text: `${a['contrat_actif']?.matricule_de_solde || 'N/A'}|${a.employe.prenom} ${a.employe.nom}`,
                     style: 'header2',
                     border: [true, true, true, false],
                   },
@@ -2374,7 +2641,7 @@ export class PdfMaker {
               return [
                 { text: i + 1, style: 'header2' },
                 {
-                  text: `${a.employe.matricule_de_solde}|${a.employe.prenom} ${a.employe.nom}`,
+                  text: `${a['contrat_actif']?.matricule_de_solde || 'N/A'}|${a.employe.prenom} ${a.employe.nom}`,
                   style: 'header2',
                   border: [true, false, true, false],
                 },
@@ -2478,7 +2745,7 @@ export class PdfMaker {
                 alignment: 'center',
               },
               {
-                image: 'src/lot/helpers/drapeau.jpg',
+                image: 'src/helpers/drapeau.jpg',
                 width: 40,
                 alignment: 'center',
               },
@@ -2515,7 +2782,7 @@ export class PdfMaker {
             alignment: 'right',
             stack: [
               {
-                image: 'src/lot/helpers/logo.png',
+                image: 'src/helpers/logo.png',
                 width: 100,
                 margin: [10, 2],
               },
@@ -2623,7 +2890,7 @@ export class PdfMaker {
                 return [
                   { text: i + 1, style: 'header2' },
                   {
-                    text: `${a.employe.matricule_de_solde}|${a.employe.prenom} ${a.employe.nom}`,
+                    text: `${a['contrat_actif']?.matricule_de_solde || 'N/A'}|${a.employe.prenom} ${a.employe.nom}`,
                     style: 'header2',
                     border: [true, true, true, false],
                   },
@@ -2666,7 +2933,7 @@ export class PdfMaker {
               return [
                 { text: i + 1, style: 'header2' },
                 {
-                  text: `${a.employe.matricule_de_solde}|${a.employe.prenom} ${a.employe.nom}`,
+                  text: `${a['contrat_actif']?.matricule_de_solde || 'N/A'}|${a.employe.prenom} ${a.employe.nom}`,
                   style: 'header2',
                   border: [true, false, true, false],
                 },
@@ -2770,7 +3037,7 @@ export class PdfMaker {
                 alignment: 'center',
               },
               {
-                image: 'src/lot/helpers/drapeau.jpg',
+                image: 'src/helpers/drapeau.jpg',
                 width: 40,
                 alignment: 'center',
               },
@@ -2807,7 +3074,7 @@ export class PdfMaker {
             alignment: 'right',
             stack: [
               {
-                image: 'src/lot/helpers/logo.png',
+                image: 'src/helpers/logo.png',
                 width: 100,
                 margin: [10, 2],
               },
@@ -2915,7 +3182,7 @@ export class PdfMaker {
                 return [
                   { text: i + 1, style: 'header2' },
                   {
-                    text: `${a.employe.matricule_de_solde}|${a.employe.prenom} ${a.employe.nom}`,
+                    text: `${a['contrat_actif']?.matricule_de_solde || 'N/A'}|${a.employe.prenom} ${a.employe.nom}`,
                     style: 'header2',
                     border: [true, true, true, false],
                   },
@@ -2956,7 +3223,7 @@ export class PdfMaker {
               return [
                 { text: i + 1, style: 'header2' },
                 {
-                  text: `${a.employe.matricule_de_solde}|${a.employe.prenom} ${a.employe.nom}`,
+                  text: `${a['contrat_actif']?.matricule_de_solde || 'N/A'}|${a.employe.prenom} ${a.employe.nom}`,
                   style: 'header2',
                   border: [true, false, true, false],
                 },
@@ -3059,7 +3326,7 @@ export class PdfMaker {
                 alignment: 'center',
               },
               {
-                image: 'src/lot/helpers/drapeau.jpg',
+                image: 'src/helpers/drapeau.jpg',
                 width: 40,
                 alignment: 'center',
               },
@@ -3096,7 +3363,7 @@ export class PdfMaker {
             alignment: 'right',
             stack: [
               {
-                image: 'src/lot/helpers/logo.png',
+                image: 'src/helpers/logo.png',
                 width: 100,
                 margin: [10, 2],
               },
@@ -3191,7 +3458,7 @@ export class PdfMaker {
                 return [
                   { text: i + 1, style: 'header2' },
                   {
-                    text: `${a.employe.matricule_de_solde}|${a.employe.prenom} ${a.employe.nom}`,
+                    text: `${a['contrat_actif']?.matricule_de_solde || 'N/A'}|${a.employe.prenom} ${a.employe.nom}`,
                     style: 'header2',
                     border: [true, true, true, false],
                   },
@@ -3220,7 +3487,7 @@ export class PdfMaker {
               return [
                 { text: i + 1, style: 'header2' },
                 {
-                  text: `${a.employe.matricule_de_solde}|${a.employe.prenom} ${a.employe.nom}`,
+                  text: `${a['contrat_actif']?.matricule_de_solde || 'N/A'}|${a.employe.prenom} ${a.employe.nom}`,
                   style: 'header2',
                   border: [true, false, true, false],
                 },
@@ -3308,7 +3575,7 @@ export class PdfMaker {
                 alignment: 'center',
               },
               {
-                image: 'src/lot/helpers/drapeau.jpg',
+                image: 'src/helpers/drapeau.jpg',
                 width: 40,
                 alignment: 'center',
               },
@@ -3345,7 +3612,7 @@ export class PdfMaker {
             alignment: 'right',
             stack: [
               {
-                image: 'src/lot/helpers/logo.png',
+                image: 'src/helpers/logo.png',
                 width: 100,
                 margin: [10, 2],
               },
@@ -3453,7 +3720,7 @@ export class PdfMaker {
                 return [
                   { text: i + 1, style: 'header2' },
                   {
-                    text: `${a.employe.matricule_de_solde}|${a.employe.prenom} ${a.employe.nom}`,
+                    text: `${a['contrat_actif']?.matricule_de_solde || 'N/A'}|${a.employe.prenom} ${a.employe.nom}`,
                     style: 'header2',
                     border: [true, true, true, false],
                   },
@@ -3496,7 +3763,7 @@ export class PdfMaker {
               return [
                 { text: i + 1, style: 'header2' },
                 {
-                  text: `${a.employe.matricule_de_solde}|${a.employe.prenom} ${a.employe.nom}`,
+                  text: `${a['contrat_actif']?.matricule_de_solde || 'N/A'}|${a.employe.prenom} ${a.employe.nom}`,
                   style: 'header2',
                   border: [true, false, true, false],
                 },
@@ -3581,12 +3848,417 @@ export class PdfMaker {
     ]);
     const options = {};
     const pdfDoc = this.printer.createPdfKitDocument(docDefinition as any, options);
-    pdfDoc.pipe(
-      createWriteStream(
-        `uploads/bulletins/${_id.toString()}-${mois}-${annee}.pdf`,
-      ),
-    );
-    pdfDoc.end();
-    return `uploads/bulletins/${_id.toString()}-${mois}-${annee}.pdf`;
+    const key = `bulletins/${_id.toString()}-${mois}-${annee}.pdf`;
+    return this.uploadPdf(pdfDoc, key);
+  }
+
+  async makeAllCdd(bulletins: any[], lot: any) {
+    const { mois, annee, etat, _id, debut, fin } = lot;
+    const wm = etat === 'VALIDE' ? annee : 'BROUILLON';
+
+    // Calcul du total NAP
+    const totalNap = bulletins.reduce((acc, b) => acc + (b.nap || 0), 0);
+
+    const docDefinition = {
+      footer: function () {
+        return {
+          text: 'DANS VOTRE INTERET ET POUR VOUS AIDER A FAIRE VALOIR VOS DROITS, CONSERVER CE DOCUMENT SANS LIMITATION DE DUREE',
+          fontSize: 6,
+          alignment: 'center' as const,
+          italics: true,
+        };
+      },
+      watermark: {
+        text: `Bulletin CDD CROUS/Z ${wm}`,
+        color: etat === 'VALIDE' ? 'grey' : 'red',
+        opacity: 0.1,
+        bold: true,
+      },
+      content: [
+        {
+          columns: [
+            {
+              width: '20%',
+              alignment: 'left',
+              stack: [
+                {
+                  text: 'REPUBLIQUE DU SENEGAL\n',
+                  fontSize: 8,
+                  bold: true,
+                  alignment: 'center',
+                },
+                {
+                  text: 'Un Peuple, Un but, Une Foi\n',
+                  fontSize: 8,
+                  bold: true,
+                  margin: [0, 2],
+                  alignment: 'center',
+                },
+                {
+                  image: 'src/helpers/drapeau.jpg',
+                  width: 50,
+                  alignment: 'center',
+                },
+                {
+                  text: "MINISTERE DE L'ENSEIGNEMENT SUPERIEUR\n",
+                  fontSize: 8,
+                  bold: true,
+                  margin: [0, 2],
+                  alignment: 'center',
+                },
+                {
+                  text: 'CENTRE REGIONAL DES OEUVRES UNIVERSITAIRES',
+                  fontSize: 8,
+                  bold: true,
+                  margin: [0, 2],
+                  alignment: 'center',
+                },
+                {
+                  text: 'SOCIALES DE ZIGUINCHOR',
+                  fontSize: 8,
+                  bold: true,
+                  alignment: 'center',
+                },
+              ],
+            },
+            {
+              width: '60%',
+              alignment: 'center',
+              stack: [
+                {
+                  text: 'TABLEAU DES BULLETINS DE PAIE - CDD',
+                  fontSize: 14,
+                  bold: true,
+                  margin: [0, 20],
+                },
+                {
+                  text: `Période: ${format(parse(debut, 'yyyy-MM-dd', new Date()), 'dd MMMM yyyy', { locale: fr })} au ${format(parse(fin, 'yyyy-MM-dd', new Date()), 'dd MMMM yyyy', { locale: fr })}`,
+                  fontSize: 10,
+                  bold: true,
+                },
+              ],
+            },
+            {
+              width: '20%',
+              alignment: 'right',
+              stack: [
+                {
+                  image: 'src/helpers/logo.png',
+                  width: 80,
+                  margin: [10, 2],
+                },
+              ],
+            },
+          ],
+          margin: [0, 0, 0, 20],
+        },
+        {
+          margin: [2, 10, 0, 10],
+          layout: {
+            fillColor: (i: number) => {
+              return i % 2 === 0 ? '#f5f5dc' : 'white';
+            },
+          },
+          table: {
+            widths: [30, '*', '*', '*', 120],
+            headerRows: 1,
+            body: [
+              [
+                { text: 'N°', style: 'header3' },
+                { text: 'Nom', style: 'header3' },
+                { text: 'Prénom', style: 'header3' },
+                { text: 'Poste', style: 'header3' },
+                { text: 'Net à Payer', style: 'header3' },
+              ],
+              ...bulletins
+                .sort((a, b) => {
+                  const nomA = (a.employe?.nom || '').toLowerCase();
+                  const nomB = (b.employe?.nom || '').toLowerCase();
+                  return nomA.localeCompare(nomB);
+                })
+                .map((b, i) => [
+                  { text: i + 1, style: 'header2' },
+                  { text: b.employe?.nom || '', style: 'header2' },
+                  { text: b.employe?.prenom || '', style: 'header2' },
+                  { text: b['contrat_actif']?.poste?.nom || 'N/A', style: 'header2' },
+                  { text: formatNumber(b.nap || 0), style: 'nombre' },
+                ]),
+              [
+                { text: 'TOTAL', bold: true, colSpan: 4, fillColor: '#fac66b' },
+                '',
+                '',
+                '',
+                { text: formatNumber(totalNap), bold: true, style: 'nombre' },
+              ],
+            ],
+          },
+        },
+        {
+          margin: [0, 20],
+          text: `Nombre total d'agents CDD: ${bulletins.length}`,
+          fontSize: 10,
+          bold: true,
+        },
+      ],
+      styles: {
+        header: {
+          border: [true, true, true, true],
+          fillColor: '#fac66b',
+          bold: true,
+          alignment: 'center',
+          fontSize: 8,
+          lineHeight: 0.8,
+        },
+        header2: {
+          alignment: 'left',
+          fontSize: 8,
+          lineHeight: 0.8,
+        },
+        nombre: {
+          alignment: 'right',
+          fontSize: 8,
+          bold: true,
+        },
+        header3: {
+          fillColor: '#fac66b',
+          bold: true,
+          alignment: 'center',
+          fontSize: 8,
+        },
+      },
+    };
+
+    const pdfDoc = this.printer.createPdfKitDocument(docDefinition as any);
+    const key = `bulletins/cdd/${_id.toString()}-${mois}-${annee}-all.pdf`;
+    return await this.uploadPdf(pdfDoc, key);
+  }
+
+  async makeAllTemporaire(bulletins: any[], lot: any) {
+    const { mois, annee, etat, _id, debut, fin } = lot;
+    const wm = etat === 'VALIDE' ? annee : 'BROUILLON';
+
+    // Calcul du total NAP
+    const totalNap = bulletins.reduce((acc, b) => acc + (b.nap || 0), 0);
+
+    const docDefinition = {
+      footer: function () {
+        return {
+          text: 'DANS VOTRE INTERET ET POUR VOUS AIDER A FAIRE VALOIR VOS DROITS, CONSERVER CE DOCUMENT SANS LIMITATION DE DUREE',
+          fontSize: 6,
+          alignment: 'center' as const,
+          italics: true,
+        };
+      },
+      watermark: {
+        text: `Bulletin TEMPORAIRE CROUS/Z ${wm}`,
+        color: etat === 'VALIDE' ? 'grey' : 'red',
+        opacity: 0.1,
+        bold: true,
+      },
+      content: [
+        {
+          columns: [
+            {
+              width: '20%',
+              alignment: 'left',
+              stack: [
+                {
+                  text: 'REPUBLIQUE DU SENEGAL\n',
+                  fontSize: 8,
+                  bold: true,
+                  alignment: 'center',
+                },
+                {
+                  text: 'Un Peuple, Un but, Une Foi\n',
+                  fontSize: 8,
+                  bold: true,
+                  margin: [0, 2],
+                  alignment: 'center',
+                },
+                {
+                  image: 'src/helpers/drapeau.jpg',
+                  width: 50,
+                  alignment: 'center',
+                },
+                {
+                  text: "MINISTERE DE L'ENSEIGNEMENT SUPERIEUR\n",
+                  fontSize: 8,
+                  bold: true,
+                  margin: [0, 2],
+                  alignment: 'center',
+                },
+                {
+                  text: 'CENTRE REGIONAL DES OEUVRES UNIVERSITAIRES',
+                  fontSize: 8,
+                  bold: true,
+                  margin: [0, 2],
+                  alignment: 'center',
+                },
+                {
+                  text: 'SOCIALES DE ZIGUINCHOR',
+                  fontSize: 8,
+                  bold: true,
+                  alignment: 'center',
+                },
+              ],
+            },
+            {
+              width: '60%',
+              alignment: 'center',
+              stack: [
+                {
+                  text: 'TABLEAU DES BULLETINS DE PAIE - TEMPORAIRE',
+                  fontSize: 14,
+                  bold: true,
+                  margin: [0, 20],
+                },
+                {
+                  text: `Période: ${format(parse(debut, 'yyyy-MM-dd', new Date()), 'dd MMMM yyyy', { locale: fr })} au ${format(parse(fin, 'yyyy-MM-dd', new Date()), 'dd MMMM yyyy', { locale: fr })}`,
+                  fontSize: 10,
+                  bold: true,
+                },
+              ],
+            },
+            {
+              width: '20%',
+              alignment: 'right',
+              stack: [
+                {
+                  image: 'src/helpers/logo.png',
+                  width: 80,
+                  margin: [10, 2],
+                },
+              ],
+            },
+          ],
+          margin: [0, 0, 0, 20],
+        },
+        {
+          margin: [2, 10, 0, 10],
+          layout: {
+            fillColor: (i: number) => {
+              return i % 2 === 0 ? '#f5f5dc' : 'white';
+            },
+          },
+          table: {
+            widths: [30, '*', '*', '*', 120],
+            headerRows: 1,
+            body: [
+              [
+                { text: 'N°', style: 'header3' },
+                { text: 'Nom', style: 'header3' },
+                { text: 'Prénom', style: 'header3' },
+                { text: 'Poste', style: 'header3' },
+                { text: 'Net à Payer', style: 'header3' },
+              ],
+              ...bulletins
+                .sort((a, b) => {
+                  const nomA = (a.employe?.nom || '').toLowerCase();
+                  const nomB = (b.employe?.nom || '').toLowerCase();
+                  return nomA.localeCompare(nomB);
+                })
+                .map((b, i) => [
+                  { text: i + 1, style: 'header2' },
+                  { text: b.employe?.nom || '', style: 'header2' },
+                  { text: b.employe?.prenom || '', style: 'header2' },
+                  { text: b['contrat_actif']?.poste?.nom || 'N/A', style: 'header2' },
+                  { text: formatNumber(b.nap || 0), style: 'nombre' },
+                ]),
+              [
+                { text: 'TOTAL', bold: true, colSpan: 4, fillColor: '#fac66b' },
+                '',
+                '',
+                '',
+                { text: formatNumber(totalNap), bold: true, style: 'nombre' },
+              ],
+            ],
+          },
+        },
+        {
+          margin: [0, 20],
+          text: 'Tableau trié par Poste',
+          fontSize: 12,
+          bold: true,
+          alignment: 'center',
+        },
+        {
+          margin: [2, 10, 0, 10],
+          layout: {
+            fillColor: (i: number) => {
+              return i % 2 === 0 ? '#f5f5dc' : 'white';
+            },
+          },
+          table: {
+            widths: [30, '*', '*', '*', 120],
+            headerRows: 1,
+            body: [
+              [
+                { text: 'N°', style: 'header3' },
+                { text: 'Poste', style: 'header3' },
+                { text: 'Nom', style: 'header3' },
+                { text: 'Prénom', style: 'header3' },
+                { text: 'Net à Payer', style: 'header3' },
+              ],
+              ...bulletins
+                .sort((a, b) => {
+                  const posteA = (a['contrat_actif']?.poste?.nom || '').toLowerCase();
+                  const posteB = (b['contrat_actif']?.poste?.nom || '').toLowerCase();
+                  return posteA.localeCompare(posteB);
+                })
+                .map((b, i) => [
+                  { text: i + 1, style: 'header2' },
+                  { text: b['contrat_actif']?.poste?.nom || 'N/A', style: 'header2' },
+                  { text: b.employe?.nom || '', style: 'header2' },
+                  { text: b.employe?.prenom || '', style: 'header2' },
+                  { text: formatNumber(b.nap || 0), style: 'nombre' },
+                ]),
+              [
+                { text: 'TOTAL', bold: true, colSpan: 4, fillColor: '#fac66b' },
+                '',
+                '',
+                '',
+                { text: formatNumber(totalNap), bold: true, style: 'nombre' },
+              ],
+            ],
+          },
+        },
+        {
+          margin: [0, 20],
+          text: `Nombre total d'agents TEMPORAIRE: ${bulletins.length}`,
+          fontSize: 10,
+          bold: true,
+        },
+      ],
+      styles: {
+        header: {
+          border: [true, true, true, true],
+          fillColor: '#fac66b',
+          bold: true,
+          alignment: 'center',
+          fontSize: 8,
+          lineHeight: 0.8,
+        },
+        header2: {
+          alignment: 'left',
+          fontSize: 8,
+          lineHeight: 0.8,
+        },
+        nombre: {
+          alignment: 'right',
+          fontSize: 8,
+          bold: true,
+        },
+        header3: {
+          fillColor: '#fac66b',
+          bold: true,
+          alignment: 'center',
+          fontSize: 8,
+        },
+      },
+    };
+
+    const pdfDoc = this.printer.createPdfKitDocument(docDefinition as any);
+    const key = `bulletins/temporaires/${_id.toString()}-${mois}-${annee}-all.pdf`;
+    return await this.uploadPdf(pdfDoc, key);
   }
 }

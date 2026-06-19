@@ -1,4 +1,5 @@
-import {  Module} from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { RequestContextMiddleware } from './common/request-context.middleware';
 import { AppService } from './app.service';
 import { EmployeModule } from './employe/employe.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -11,6 +12,7 @@ import { CategorieModule } from './categorie/categorie.module';
 import { DivisionModule } from './division/division.module';
 import { ServiceModule } from './service/service.module';
 import { FonctionModule } from './fonction/fonction.module';
+import { PosteModule } from './poste/poste.module';
 import { TypedocumentModule } from './typedocument/typedocument.module';
 import { DocumentModule } from './document/document.module';
 import { NominationModule } from './nomination/nomination.module';
@@ -19,7 +21,11 @@ import { AttributionGlobaleModule } from './attribution-globale/attribution-glob
 import { AttributionIndividuelleModule } from './attribution-individuelle/attribution-individuelle.module';
 import { ExclusionSpecifiqueModule } from './exclusion-specifique/exclusion-specifique.module';
 import { LotModule } from './lot/lot.module';
+import { LotCDDModule } from './lot-cdd/lot-cdd.module';
+import { LotTemporaireModule } from './lot-temporaire/lot-temporaire.module';
 import { BulletinModule } from './bulletin/bulletin.module';
+import { BulletinCDDModule } from './bulletin-cdd/bulletin-cdd.module';
+import { BulletinTemporaireModule } from './bulletin-temporaire/bulletin-temporaire.module';
 import { AbsenceModule } from './absence/absence.module';
 import { CongeModule } from './conge/conge.module';
 import { PieceJointeModule } from './piece-jointe/piece-jointe.module';
@@ -27,15 +33,27 @@ import { WorkflowModule } from './workflow/workflow.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { AuthModule } from '@thallesp/nestjs-better-auth';
+import { AuthModule, AuthGuard } from '@thallesp/nestjs-better-auth';
+import { RolesGuard } from './common/guards';
 import { auth } from './lib/auth';
 import { BullModule } from '@nestjs/bullmq';
+import { ContratModule } from './contrat/contrat.module';
+import { SiteModule } from './site/site.module';
+import { AffectationSiteModule } from './affectation-site/affectation-site.module';
+import { HistoriqueModule } from './historique/historique.module';
+import { ReportingModule } from './reporting/reporting.module';
+import { StorageModule } from './storage/storage.module';
 import { LogAggregatorService } from './log-aggregator/log-aggregator.service';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true, // no need to import into other modules
+    }),
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 300, // 5 minutes par défaut
     }),
     BullModule.forRootAsync({
       useFactory: async (config: ConfigService) => ({
@@ -68,6 +86,7 @@ import { LogAggregatorService } from './log-aggregator/log-aggregator.service';
     DivisionModule,
     ServiceModule,
     FonctionModule,
+    PosteModule,
     TypedocumentModule,
     DocumentModule,
     NominationModule,
@@ -76,11 +95,21 @@ import { LogAggregatorService } from './log-aggregator/log-aggregator.service';
     AttributionIndividuelleModule,
     ExclusionSpecifiqueModule,
     LotModule,
+    LotCDDModule,
+    LotTemporaireModule,
     BulletinModule,
+    BulletinCDDModule,
+    BulletinTemporaireModule,
     AbsenceModule,
     CongeModule,
     PieceJointeModule,
     WorkflowModule,
+    ContratModule,
+    SiteModule,
+    AffectationSiteModule,
+    HistoriqueModule,
+    ReportingModule,
+    StorageModule,
     LogAggregatorModule,
     AuthModule.forRootAsync({
       inject: [LogAggregatorService],
@@ -119,14 +148,16 @@ import { LogAggregatorService } from './log-aggregator/log-aggregator.service';
       }),
     }),
   ],
-  providers: [AppService, {
-    provide: APP_GUARD,
-    useClass: ThrottlerGuard,
-  }, {
-    provide: APP_INTERCEPTOR,
-    useClass: LogAggregatorInterceptor,
-  }
-],
+  providers: [AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_INTERCEPTOR, useClass: LogAggregatorInterceptor },
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestContextMiddleware).forRoutes('*');
+  }
+}
 

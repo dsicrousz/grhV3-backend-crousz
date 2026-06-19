@@ -7,8 +7,10 @@ import { PieceJointeService } from './piece-jointe.service';
 import { CreatePieceJointeDto } from './dto/create-piece-jointe.dto';
 import { UpdatePieceJointeDto } from './dto/update-piece-jointe.dto';
 import { TypePieceJointe } from './entities/piece-jointe.entity';
+import { Roles } from 'src/common/guards';
 
 @Controller('piece-jointe')
+@Roles('admin', 'rh')
 export class PieceJointeController {
     constructor(private readonly pieceJointeService: PieceJointeService) {}
 
@@ -23,7 +25,7 @@ export class PieceJointeController {
         }
         
         createPieceJointeDto.nom_fichier = fichier.filename;
-        createPieceJointeDto.url = `uploads/documents/${fichier.filename}`;
+        createPieceJointeDto.url = fichier.path;
         createPieceJointeDto.mimetype = fichier.mimetype;
         createPieceJointeDto.taille = fichier.size;
         
@@ -77,7 +79,7 @@ export class PieceJointeController {
     ) {
         if (fichier) {
             updatePieceJointeDto.nom_fichier = fichier.filename;
-            updatePieceJointeDto.url = `uploads/documents/${fichier.filename}`;
+            updatePieceJointeDto.url = fichier.path;
             updatePieceJointeDto.mimetype = fichier.mimetype;
             updatePieceJointeDto.taille = fichier.size;
         }

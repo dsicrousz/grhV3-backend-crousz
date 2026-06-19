@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { HydratedDocument, Types } from "mongoose";
+import mongoose, { HydratedDocument } from "mongoose";
 import { Employe } from "src/employe/entities/employe.entity";
 import { Rubrique } from "src/rubrique/entities/rubrique.entity";
 
@@ -10,10 +10,10 @@ export class ExclusionSpecifique {
 
     _id: string;
 
-    @Prop({type: Types.ObjectId,ref: Employe.name,required: true,autopopulate: true})
+    @Prop({type: mongoose.Schema.Types.ObjectId,ref: Employe.name,required: true,autopopulate: true})
     employe: string;
 
-    @Prop({type: Types.ObjectId,ref: Rubrique.name,required: true,autopopulate: true})
+    @Prop({type: mongoose.Schema.Types.ObjectId,ref: Rubrique.name,required: true,autopopulate: true})
     rubrique:Rubrique ;
 
     @Prop({type: String})

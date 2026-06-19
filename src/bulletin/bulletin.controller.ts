@@ -1,5 +1,6 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { BulletinService } from './bulletin.service';
+import { Roles } from 'src/common/guards';
 
 /**
  * Bulletin Controller
@@ -9,6 +10,7 @@ import { BulletinService } from './bulletin.service';
  * @typedef {BulletinController}
  */
 @Controller('bulletin')
+@Roles('admin', 'rh', 'csa')
 export class BulletinController {
   constructor(private readonly bulletinService: BulletinService) {}
 

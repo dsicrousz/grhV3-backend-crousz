@@ -20,6 +20,9 @@ if (!FRONTEND_URLS) {
 
 const allowedOrigins = FRONTEND_URLS.split(',').map(url => url.trim());
 
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
 const client = new MongoClient(MONGODB_URL);
 const db = client.db();
 
@@ -33,6 +36,12 @@ export const auth = betterAuth({
     requireEmailVerification: false,
     autoSignIn: true,
   },
+  socialProviders: GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET ? {
+    google: {
+      clientId: GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
+    },
+  } : {},
   plugins: [
     admin({
       ac,

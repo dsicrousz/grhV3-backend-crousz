@@ -13,7 +13,10 @@ import { ImpotModule } from 'src/impot/impot.module';
 import { RubriqueModule } from 'src/rubrique/rubrique.module';
 import { BullModule } from '@nestjs/bullmq';
 import { BulletinModule } from 'src/bulletin/bulletin.module';
+import { ContratModule } from 'src/contrat/contrat.module';
 import { LotConsumer } from './LotConsumer';
+import { PdfMakerModule } from 'src/helpers/pdf-maker.module';
+import { StorageModule } from 'src/storage/storage.module';
 @Module({
   imports:[MongooseModule.forFeature([{name: Lot.name,schema: LotSchema}]),
    BullModule.registerQueue({
@@ -27,7 +30,10 @@ import { LotConsumer } from './LotConsumer';
   NominationModule,
   ImpotModule,
   RubriqueModule,
-  BulletinModule
+  BulletinModule,
+  ContratModule,
+  PdfMakerModule,
+  StorageModule,
 ],
   controllers: [LotController],
   providers: [LotService,LotConsumer],
