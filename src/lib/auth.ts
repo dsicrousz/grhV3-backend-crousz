@@ -53,7 +53,10 @@ export const auth = betterAuth({
     apiKey({
       enableSessionForAPIKeys: true,
     }),
-     dash()
+     dash({
+      apiKey:process.env.BETTER_AUTH_API_KEY,
+      kvUrl:process.env.BETTER_AUTH_IDENTIFY_URL,
+     })
   ],
   secret: BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
