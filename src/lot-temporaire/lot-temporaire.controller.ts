@@ -31,23 +31,27 @@ export class LotTemporaireController {
     }
 
     @Get()
-    async findAll() {
-        const lots = await this.lotService.findAll();
-        return lots.map(lot => {
-            if (lot?.url) {
-                lot.url = this.storageService.getPublicUrl(lot.url);
-            }
-            return lot;
-        });
+    findAll() {
+     return this.lotService.findAll();     
+    }
+
+    @Get('transmis')
+    async findAllTransmitted() {
+        return this.lotService.findAllTransmitted();
+    }
+
+    @Get(':id/detail')
+    async findOneWithBulletins(@Param('id') id: string) {
+        const lot = await this.lotService.findOneWithBulletins(id);
+        if (!lot) {
+            throw new HttpException('Lot non trouvé', 404);
+        }
+        return lot;
     }
 
     @Get(':id')
-    async findOne(@Param('id') id: string) {
-        const lot = await this.lotService.findOne(id);
-        if (lot?.url) {
-            lot.url = this.storageService.getPublicUrl(lot.url);
-        }
-        return lot;
+    findOne(@Param('id') id: string) {
+       return this.lotService.findOne(id)
     }
 
     @Patch(':id')
@@ -59,8 +63,6 @@ export class LotTemporaireController {
     async remove(@Param('id') id: string) {
         // Récupérer les bulletins pour avoir les URLs
         const bulletins = await this.bulletinService.findByLot(id);
-        const bulletinUrls = bulletins.map(b => b.url).filter(Boolean);
-
         // Récupérer le lot pour son URL
         const lot = await this.lotService.findOne(id);
         const lotUrl = lot?.url;
@@ -68,7 +70,6 @@ export class LotTemporaireController {
         // Lancer le job de suppression asynchrone
         await this.lotQueue.add('deletelottemporaire', {
             lotId: id,
-            bulletinUrls,
             lotUrl,
         });
 
@@ -110,50 +111,61 @@ export class LotTemporaireController {
         return lot;
     }
 
+    @Patch('transmit/:id')
+    transmit(@Param('id') id: string) {
+        return this.lotService.transmit(id);
+    }
+
+    @Patch('untransmit/:id')
+    untransmit(@Param('id') id: string) {
+        return this.lotService.untransmit(id);
+    }
+
     @Get('getbulletins/:id')
     async findBulletin(@Param('id') id: string) {
         // Récupérer les bulletins de l'employé depuis la DB
         const bulletins = await this.bulletinService.findByEmploye(id);
         // Filtrer les bulletins publiés et retourner les URLs
-        const files = bulletins
-            .filter(b => b.url)
-            .map(b => ({
-                url: this.storageService.getPublicUrl(b.url),
-                lot: b.lot,
-                mois: (b as any).mois,
-                annee: (b as any).annee,
-            }));
-        return files.sort((a: any, b: any) => `${b.annee}-${b.mois}`.localeCompare(`${a.annee}-${a.mois}`));
+        return bulletins.map(b => ({
+            lot: b.lot,
+            nap: b.nap,
+        }));
     }
 
     // -------------------- GÉNÉRATION DES BULLETINS TEMPORAIRE --------------------
 
     @Post('generate/:id')
-    async generateBulletin(@Param('id') id: string) {
+    async generateBulletin(@Param('id') id: string, @Body() body?: { postes?: string[] }) {
         const lot = await this.lotService.findOne(id);
         // Pour les temporaires, pas de bulletins individuels, seulement le bulletin global
-        return this.finalizeLotBulletins(lot);
+        return this.finalizeLotBulletins(lot, body?.postes);
     }
 
-    private async finalizeLotBulletins(lot: LotTemporaire) {
-        const employes = (await this.employeService.findAllAgregated()).filter(
-            (emp) => emp.contrat_actif && emp.contrat_actif.type === TypeContrat.TEMPORAIRE,
-        );
+    private async finalizeLotBulletins(lot: LotTemporaire, postesFilter?: string[]) {
+        const employes = (await this.employeService.findAllAgregated()).filter((emp) => {
+            if (!emp.contrat_actif || emp.contrat_actif.type !== TypeContrat.TEMPORAIRE) return false;
+            if (postesFilter?.length) {
+                const posteId = emp.contrat_actif.poste?._id?.toString() ?? emp.contrat_actif.poste?.toString();
+                return postesFilter.includes(posteId);
+            }
+            return true;
+        });
 
         const bulletinsData = [];
         for (const emp of employes) {
             const salaireFixe = emp.contrat_actif?.salaire_fixe ?? 0;
             const contrat = await this.contratService.findActiveByEmploye(emp._id.toString());
 
+            await this.bulletinService.updateBulletin(emp._id.toString(), {
+                employe: emp._id.toString(),
+                lot: lot._id.toString(),
+                nap: salaireFixe,
+            });
+
             bulletinsData.push({
                 employe: emp,
                 contrat_actif: contrat,
                 nap: salaireFixe,
-                totalIm: salaireFixe,
-                totalNI: 0,
-                totalRet: 0,
-                totalPP: 0,
-                lignes: { gains: [], retenues: [] },
             });
         }
 

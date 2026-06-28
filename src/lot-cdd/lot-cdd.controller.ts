@@ -56,13 +56,23 @@ export class LotCDDController {
         });
     }
 
-    @Get(':id')
-    async findOne(@Param('id') id: string) {
-        const lot = await this.lotService.findOne(id);
-        if (lot?.url) {
-            lot.url = this.storageService.getPublicUrl(lot.url);
+    @Get('transmis')
+    async findAllTransmitted() {
+        return this.lotService.findAllTransmitted();
+    }
+
+    @Get(':id/detail')
+    async findOneWithBulletins(@Param('id') id: string) {
+        const lot = await this.lotService.findOneWithBulletins(id);
+        if (!lot) {
+            throw new HttpException('Lot non trouvé', 404);
         }
         return lot;
+    }
+
+    @Get(':id')
+    findOne(@Param('id') id: string) {
+        return this.lotService.findOne(id);
     }
 
     @Patch(':id')
@@ -123,6 +133,16 @@ export class LotCDDController {
         const lot = await this.lotService.cancelValidate(id);
         await this.generateBulletin(id);
         return lot;
+    }
+
+    @Patch('transmit/:id')
+    transmit(@Param('id') id: string) {
+        return this.lotService.transmit(id);
+    }
+
+    @Patch('untransmit/:id')
+    untransmit(@Param('id') id: string) {
+        return this.lotService.untransmit(id);
     }
 
     @Get('getbulletins/:id')
@@ -199,9 +219,10 @@ export class LotCDDController {
     private async finalizeLotBulletins(lot: LotCDD) {
         const bulletinsCreated = await this.bulletinService.findByLot(lot._id);
         for (const b of bulletinsCreated) {
-            const contrat = await this.contratService.findActiveByEmploye(
+            const contratDoc = await this.contratService.findActiveByEmploye(
                 (b.employe as any)._id?.toString() || b.employe.toString(),
             );
+            const contrat = (contratDoc as any)?.toObject ? (contratDoc as any).toObject() : contratDoc;
             (b as any).contrat_actif = contrat;
             try {
                 await this.lotQueue.add('generatebulletincdd', { bulletin: b, lot, contrat });

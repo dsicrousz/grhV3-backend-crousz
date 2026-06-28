@@ -13,6 +13,6 @@ export class AttributionGlobaleService extends AbstractModel<AttributionGlobale,
   }
 
   async byTypeContrat(type: string) {
-    return this.attributionGlobalModel.find({ type_contrat: type }).exec();
+    return this.attributionGlobalModel.where({ type_contrat: type }).exec();
   }
 }

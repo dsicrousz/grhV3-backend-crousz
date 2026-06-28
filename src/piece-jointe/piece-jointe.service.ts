@@ -112,4 +112,13 @@ export class PieceJointeService extends AbstractModel<PieceJointe, CreatePieceJo
             throw new HttpException(error.message, 500);
         }
     }
+
+    async deleteByEmploye(employeId: string): Promise<number> {
+        try {
+            return (await this.pieceJointeModel.deleteMany({ employe: employeId } as any)).deletedCount;
+        } catch (error) {
+            this.logger.error(`Erreur lors de la suppression des pièces jointes pour l'employé ${employeId}`, error);
+            throw new HttpException(error.message, 500);
+        }
+    }
 }

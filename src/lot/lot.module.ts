@@ -17,6 +17,7 @@ import { ContratModule } from 'src/contrat/contrat.module';
 import { LotConsumer } from './LotConsumer';
 import { PdfMakerModule } from 'src/helpers/pdf-maker.module';
 import { StorageModule } from 'src/storage/storage.module';
+import { ParametreBulletinModule } from 'src/parametre-bulletin/parametre-bulletin.module';
 @Module({
   imports:[MongooseModule.forFeature([{name: Lot.name,schema: LotSchema}]),
    BullModule.registerQueue({
@@ -34,6 +35,7 @@ import { StorageModule } from 'src/storage/storage.module';
   ContratModule,
   PdfMakerModule,
   StorageModule,
+  ParametreBulletinModule,
 ],
   controllers: [LotController],
   providers: [LotService,LotConsumer],

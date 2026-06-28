@@ -43,6 +43,8 @@ import { AffectationSiteModule } from './affectation-site/affectation-site.modul
 import { HistoriqueModule } from './historique/historique.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { StorageModule } from './storage/storage.module';
+import { MotifRuptureModule } from './motif-rupture/motif-rupture.module';
+import { ParametreBulletinModule } from './parametre-bulletin/parametre-bulletin.module';
 import { LogAggregatorService } from './log-aggregator/log-aggregator.service';
 import { CacheModule } from '@nestjs/cache-manager';
 
@@ -110,6 +112,8 @@ import { CacheModule } from '@nestjs/cache-manager';
     HistoriqueModule,
     ReportingModule,
     StorageModule,
+    MotifRuptureModule,
+    ParametreBulletinModule,
     LogAggregatorModule,
     AuthModule.forRootAsync({
       inject: [LogAggregatorService],

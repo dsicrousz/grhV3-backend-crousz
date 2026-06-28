@@ -14,7 +14,7 @@ import { Roles } from 'src/common/guards';
  * @typedef {EmployeController}
  */
 @Controller('employe')
-@Roles('admin', 'rh')
+@Roles('admin', 'rh','csa')
 export class EmployeController {
   constructor(private readonly employeService: EmployeService) {}
 

@@ -27,4 +27,12 @@ export class HistoriqueService extends AbstractModel<Historique, CreateHistoriqu
             throw new HttpException(error.message, 500);
         }
     }
+
+    async deleteByEmploye(employeId: string): Promise<number> {
+        try {
+            return (await this.historiqueModel.deleteMany({ employe: employeId })).deletedCount;
+        } catch (error) {
+            throw new HttpException(error.message, 500);
+        }
+    }
 }

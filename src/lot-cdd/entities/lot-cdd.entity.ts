@@ -36,6 +36,10 @@ export class LotCDD {
     @Prop({ type: Boolean, default: false, required: true })
     isPublished: boolean;
 
+
+     @Prop({type:Boolean, default: false,required: true})
+    isTransmitted:boolean;
+
     @Prop({ type: String })
     url: string;
 

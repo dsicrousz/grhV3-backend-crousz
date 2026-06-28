@@ -19,6 +19,7 @@ import { BulletinCDDModule } from 'src/bulletin-cdd/bulletin-cdd.module';
 import { ContratModule } from 'src/contrat/contrat.module';
 import { PdfMakerModule } from 'src/helpers/pdf-maker.module';
 import { StorageModule } from 'src/storage/storage.module';
+import { ParametreBulletinModule } from 'src/parametre-bulletin/parametre-bulletin.module';
 
 @Module({
     imports: [
@@ -36,6 +37,7 @@ import { StorageModule } from 'src/storage/storage.module';
         ContratModule,
         PdfMakerModule,
         StorageModule,
+        ParametreBulletinModule,
     ],
     controllers: [LotCDDController],
     providers: [LotCDDService, LotCDDConsumer],

@@ -1,6 +1,6 @@
 import { Injectable, HttpException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { AbstractModel } from 'src/packe/abstractmodel';
 import { BulletinTemporaire, BulletinTemporaireDocument } from './entities/bulletin-temporaire.entity';
 import { CreateBulletinTemporaireDto } from './dto/create-bulletin-temporaire.dto';
@@ -18,6 +18,10 @@ export class BulletinTemporaireService extends AbstractModel<BulletinTemporaire,
 
     async deleteMany(idLot: string) {
         return await this.bulletinModel.deleteMany({ lot: idLot });
+    }
+
+    async deleteByEmploye(employeId: string): Promise<number> {
+        return (await this.bulletinModel.deleteMany({ employe: employeId })).deletedCount;
     }
 
     async updateBulletin(idEmploye: string, updateBulletinDto: CreateBulletinTemporaireDto) {
@@ -38,7 +42,12 @@ export class BulletinTemporaireService extends AbstractModel<BulletinTemporaire,
 
     async findByEmploye(id: string): Promise<BulletinTemporaire[]> {
         try {
-            return await this.bulletinModel.find({ employe: id });
+            return await this.bulletinModel.aggregate([
+                { $match: { employe: new Types.ObjectId(id) } },
+                { $lookup: { from: 'lottemporaires', localField: 'lot', foreignField: '_id', as: 'lot' } },
+                { $unwind: '$lot' },
+                { $sort: { 'lot.annee': -1, 'lot.mois': -1 } },
+            ]);
         } catch (error) {
             throw new HttpException(error.message, 500);
         }

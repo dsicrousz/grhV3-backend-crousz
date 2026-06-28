@@ -10,6 +10,17 @@ import { Model, Types } from 'mongoose';
 import { HistoriqueService } from 'src/historique/historique.service';
 import { TypeEvenement } from 'src/historique/entities/historique.entity';
 import { getUserIdFromContext } from 'src/common/request-context';
+import { ContratService } from 'src/contrat/contrat.service';
+import { NominationService } from 'src/nomination/nomination.service';
+import { BulletinService } from 'src/bulletin/bulletin.service';
+import { BulletinCDDService } from 'src/bulletin-cdd/bulletin-cdd.service';
+import { BulletinTemporaireService } from 'src/bulletin-temporaire/bulletin-temporaire.service';
+import { AffectationSiteService } from 'src/affectation-site/affectation-site.service';
+import { AttributionIndividuelleService } from 'src/attribution-individuelle/attribution-individuelle.service';
+import { ExclusionSpecifiqueService } from 'src/exclusion-specifique/exclusion-specifique.service';
+import { AbsenceService } from 'src/absence/absence.service';
+import { CongeService } from 'src/conge/conge.service';
+import { PieceJointeService } from 'src/piece-jointe/piece-jointe.service';
 
 @Injectable()
 export class EmployeService extends AbstractModel<Employe, CreateEmployeDto, UpdateEmployeDto> {
@@ -17,6 +28,17 @@ export class EmployeService extends AbstractModel<Employe, CreateEmployeDto, Upd
     @InjectModel(Employe.name) private readonly employeModel: Model<EmployeDocument>,
     private readonly historiqueService: HistoriqueService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly contratService: ContratService,
+    private readonly nominationService: NominationService,
+    private readonly bulletinService: BulletinService,
+    private readonly bulletinCDDService: BulletinCDDService,
+    private readonly bulletinTemporaireService: BulletinTemporaireService,
+    private readonly affectationSiteService: AffectationSiteService,
+    private readonly attributionIndividuelleService: AttributionIndividuelleService,
+    private readonly exclusionSpecifiqueService: ExclusionSpecifiqueService,
+    private readonly absenceService: AbsenceService,
+    private readonly congeService: CongeService,
+    private readonly pieceJointeService: PieceJointeService,
   ) {
     super(employeModel);
   }
@@ -370,6 +392,29 @@ export class EmployeService extends AbstractModel<Employe, CreateEmployeDto, Upd
   async findByMat(mat: string): Promise<Employe> {
     try {
       return await this.employeModel.findOne({ nci: mat });
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
+
+  async remove(id: string): Promise<Employe> {
+    try {
+      await Promise.all([
+        this.contratService.deleteByEmploye(id),
+        this.nominationService.deleteByEmploye(id),
+        this.bulletinService.deleteByEmploye(id),
+        this.bulletinCDDService.deleteByEmploye(id),
+        this.bulletinTemporaireService.deleteByEmploye(id),
+        this.affectationSiteService.deleteByEmploye(id),
+        this.attributionIndividuelleService.deleteByEmploye(id),
+        this.exclusionSpecifiqueService.deleteByEmploye(id),
+        this.absenceService.deleteByEmploye(id),
+        this.congeService.deleteByEmploye(id),
+        this.pieceJointeService.deleteByEmploye(id),
+        this.historiqueService.deleteByEmploye(id),
+      ]);
+      await this.cacheManager.del('employes_all_agregated');
+      return await super.remove(id);
     } catch (error) {
       throw new HttpException(error.message, 500);
     }

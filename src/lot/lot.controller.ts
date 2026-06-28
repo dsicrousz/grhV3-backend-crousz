@@ -1,6 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpException, Query
-  //  Headers, UseInterceptors, UploadedFiles
-   } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpException, Query, UseInterceptors, UploadedFiles, Headers } from '@nestjs/common';
 import { PeriodLotStatisticsResponse } from 'src/bulletin/dto/period-lot-statistics.dto';
 import { StorageService } from 'src/storage/storage.service';
 import { LotService } from './lot.service';
@@ -36,8 +34,9 @@ import { TypeContrat } from 'src/contrat/entities/contrat.entity';
 import { Roles } from 'src/common/guards';
 import { readFile } from 'node:fs/promises';
 import { Types } from 'mongoose';
-// import { AnyFilesInterceptor } from '@nestjs/platform-express';
-// import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import { ParametreBulletinService } from 'src/parametre-bulletin/parametre-bulletin.service';
 
 @Controller('lot')
 @Roles('admin', 'csa','rh')
@@ -54,6 +53,7 @@ export class LotController {
     private readonly contratService: ContratService,
     private readonly pdf: PdfMaker,
     private readonly storageService: StorageService,
+    private readonly parametreBulletinService: ParametreBulletinService,
     @InjectQueue('lot') private lotQueue: Queue
     ) {}
 
@@ -62,93 +62,93 @@ export class LotController {
     return this.lotService.createLot(createLotDto);
   }
  
-  // @AllowAnonymous()
-  // @Post('import-legacy/lots')
-  // @UseInterceptors(AnyFilesInterceptor())
-  // async importLegacyLots(
-  //   @Body() payload: any,
-  //   @Query('filePath') filePath?: string,
-  //   @Query('lotsFilePath') lotsFilePath?: string,
-  //   @Headers('x-file-path') headerFilePath?: string,
-  //   @UploadedFiles() files?: Array<Express.Multer.File>,
-  // ) {
-  //   try {
-  //     const mergedPayload = this.mergeLegacyImportPayload(
-  //       payload,
-  //       { filePath, lotsFilePath },
-  //       headerFilePath,
-  //     );
-  //     const source = await this.resolveLegacyLotSource(mergedPayload, files);
-  //     const normalizedLots = source.lots.map((lot) => this.normalizeLegacyDocument(lot));
+  @AllowAnonymous()
+  @Post('import-legacy/lots')
+  @UseInterceptors(AnyFilesInterceptor())
+  async importLegacyLots(
+    @Body() payload: any,
+    @Query('filePath') filePath?: string,
+    @Query('lotsFilePath') lotsFilePath?: string,
+    @Headers('x-file-path') headerFilePath?: string,
+    @UploadedFiles() files?: Array<Express.Multer.File>,
+  ) {
+    try {
+      const mergedPayload = this.mergeLegacyImportPayload(
+        payload,
+        { filePath, lotsFilePath },
+        headerFilePath,
+      );
+      const source = await this.resolveLegacyLotSource(mergedPayload, files);
+      const normalizedLots = source.lots.map((lot) => this.normalizeLegacyDocument(lot));
 
-  //     if (!normalizedLots.length) {
-  //       return this.buildLegacyEmptyResponse('Aucun lot detecte dans la source legacy', mergedPayload, files);
-  //     }
+      if (!normalizedLots.length) {
+        return this.buildLegacyEmptyResponse('Aucun lot detecte dans la source legacy', mergedPayload, files);
+      }
 
-  //     const lots = this.deduplicateLegacyLots(normalizedLots).map((lot) => this.toLegacyLotDocument(lot));
-  //     const lotResult = await this.lotService.upsertLegacyMany(lots);
+      const lots = this.deduplicateLegacyLots(normalizedLots).map((lot) => this.toLegacyLotDocument(lot));
+      const lotResult = await this.lotService.upsertLegacyMany(lots);
 
-  //     return {
-  //       lots: {
-  //         total: lots.length,
-  //         ...lotResult,
-  //       },
-  //     };
-  //   } catch (error) {
-  //     throw new HttpException(error.message, 500);
-  //   }
-  // }
+      return {
+        lots: {
+          total: lots.length,
+          ...lotResult,
+        },
+      };
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
 
-  // @AllowAnonymous()
-  // @Post('import-legacy/bulletins')
-  // @UseInterceptors(AnyFilesInterceptor())
-  // async importLegacyBulletins(
-  //   @Body() payload: any,
-  //   @Query('filePath') filePath?: string,
-  //   @Query('bulletinsFilePath') bulletinsFilePath?: string,
-  //   @Query('lotsFilePath') lotsFilePath?: string,
-  //   @Headers('x-file-path') headerFilePath?: string,
-  //   @UploadedFiles() files?: Array<Express.Multer.File>,
-  // ) {
-  //   try {
-  //     const mergedPayload = this.mergeLegacyImportPayload(
-  //       payload,
-  //       { filePath, bulletinsFilePath, lotsFilePath },
-  //       headerFilePath,
-  //     );
-  //     const source = await this.resolveLegacyBulletinSource(mergedPayload, files);
-  //     const normalizedBulletins = source.bulletins.map((bulletin) => this.normalizeLegacyDocument(bulletin));
-  //     const normalizedLots = source.lots.map((lot) => this.normalizeLegacyDocument(lot));
+  @AllowAnonymous()
+  @Post('import-legacy/bulletins')
+  @UseInterceptors(AnyFilesInterceptor())
+  async importLegacyBulletins(
+    @Body() payload: any,
+    @Query('filePath') filePath?: string,
+    @Query('bulletinsFilePath') bulletinsFilePath?: string,
+    @Query('lotsFilePath') lotsFilePath?: string,
+    @Headers('x-file-path') headerFilePath?: string,
+    @UploadedFiles() files?: Array<Express.Multer.File>,
+  ) {
+    try {
+      const mergedPayload = this.mergeLegacyImportPayload(
+        payload,
+        { filePath, bulletinsFilePath, lotsFilePath },
+        headerFilePath,
+      );
+      const source = await this.resolveLegacyBulletinSource(mergedPayload, files);
+      const normalizedBulletins = source.bulletins.map((bulletin) => this.normalizeLegacyDocument(bulletin));
+      const normalizedLots = source.lots.map((lot) => this.normalizeLegacyDocument(lot));
 
-  //     if (!normalizedBulletins.length) {
-  //       return this.buildLegacyEmptyResponse('Aucun bulletin detecte dans la source legacy', mergedPayload, files);
-  //     }
+      if (!normalizedBulletins.length) {
+        return this.buildLegacyEmptyResponse('Aucun bulletin detecte dans la source legacy', mergedPayload, files);
+      }
 
-  //     const lotIndex = new Map(
-  //       this.deduplicateLegacyLots(normalizedLots).map((lot) => [
-  //         this.toObjectId(lot._id, 'lot._id').toString(),
-  //         lot,
-  //       ]),
-  //     );
+      const lotIndex = new Map(
+        this.deduplicateLegacyLots(normalizedLots).map((lot) => [
+          this.toObjectId(lot._id, 'lot._id').toString(),
+          lot,
+        ]),
+      );
 
-  //     const bulletins = normalizedBulletins.map((bulletin) =>
-  //       this.toLegacyBulletinDocument(
-  //         bulletin,
-  //         lotIndex.get((bulletin.lot?._id ?? bulletin.lot)?.toString()),
-  //       ),
-  //     );
-  //     const bulletinResult = await this.bulletinService.upsertLegacyMany(bulletins);
+      const bulletins = normalizedBulletins.map((bulletin) =>
+        this.toLegacyBulletinDocument(
+          bulletin,
+          lotIndex.get((bulletin.lot?._id ?? bulletin.lot)?.toString()),
+        ),
+      );
+      const bulletinResult = await this.bulletinService.upsertLegacyMany(bulletins);
 
-  //     return {
-  //       bulletins: {
-  //         total: bulletins.length,
-  //         ...bulletinResult,
-  //       },
-  //     };
-  //   } catch (error) {
-  //     throw new HttpException(error.message, 500);
-  //   }
-  // }
+      return {
+        bulletins: {
+          total: bulletins.length,
+          ...bulletinResult,
+        },
+      };
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
 
   findOneImpotByVal(impots: Impot[],val: number): Impot {
       try {
@@ -164,6 +164,17 @@ export class LotController {
       }
   }
 
+  @AllowAnonymous()
+  @Post('regenerate-pdf/:id')
+  async regeneratePdf(@Param('id') id: string) {
+    try {
+      const lot = await this.lotService.findOne(id);
+      return this.finalizeLotBulletins(lot);
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
+
   @Post('generate/:id')
   async generateBulletin(@Param('id') id: string) {
     try {
@@ -173,7 +184,8 @@ export class LotController {
     const impots = await this.impotService.findAll();
     for (const emp of employes) {
       const bulletin: CreateBulletinDto = { employe: emp._id.toString(), lignes: { gains: [], retenues: [] }, lot: lot._id, totalIm: 0, totalNI: 0, totalRet: 0, totalPP: 0, nap: 0 };
-      const dateRecrutement = emp.contrat_actif?.date_debut ? new Date(emp.contrat_actif.date_debut).toISOString().split('T')[0] : null;
+      const premierContrat = await this.contratService.findFirstContratByEmploye(emp._id.toString());
+      const dateRecrutement = premierContrat?.date_debut ? new Date(premierContrat.date_debut).toISOString().split('T')[0] : null;
       const scopes = {
         CATEGORIE_VALEUR: emp.contrat_actif?.categorie?.valeur ?? 0,
         EMP_CLASSE: emp.contrat_actif?.categorie?.code?.toString().substring(0, 1) ?? '1',
@@ -231,7 +243,9 @@ export class LotController {
     }
     let urlLot;
     try {
-      urlLot = await this.pdf.makeAll(bulletinsCreated, lot, previousLots);
+      const parametre = await this.parametreBulletinService.findByAnnee(lot.annee);
+      const couleur = parametre?.couleur ?? '#fac66b';
+      urlLot = await this.pdf.makeAll(bulletinsCreated, lot, previousLots, couleur);
     } catch (error) {
       console.error('Error generating PDF:', error);
       throw new HttpException(error.message, 500);
@@ -501,6 +515,20 @@ export class LotController {
     );
   }
 
+  @Get('transmis')
+  async findAllTransmitted() {
+    return this.lotService.findAllTransmitted();
+  }
+
+  @Get(':id/detail')
+  async findOneWithBulletins(@Param('id') id: string) {
+    const lot = await this.lotService.findOneWithBulletins(id);
+    if (!lot) {
+      throw new HttpException('Lot non trouvé', 404);
+    }
+    return lot;
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return await this.lotService.findOne(id);
@@ -565,6 +593,26 @@ export class LotController {
     const lot = await this.lotService.cancelValidate(id);
     await this.generateBulletin(id);
     return lot;
+  }
+
+  @Patch('publish/:id')
+  publish(@Param('id') id: string) {
+    return this.lotService.publish(id);
+  }
+
+  @Patch('unpublish/:id')
+  unpublish(@Param('id') id: string) {
+    return this.lotService.unpublish(id);
+  }
+
+  @Patch('transmit/:id')
+  transmit(@Param('id') id: string) {
+    return this.lotService.transmit(id);
+  }
+
+  @Patch('untransmit/:id')
+  untransmit(@Param('id') id: string) {
+    return this.lotService.untransmit(id);
   }
 
   private async resolveLegacyImportSource(payload: any, files?: Array<Express.Multer.File>): Promise<{ lots: any[]; bulletins: any[] }> {

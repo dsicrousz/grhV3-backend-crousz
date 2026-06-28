@@ -4,6 +4,7 @@ import { PdfMaker } from 'src/helpers/pdf.maker';
 import { BulletinService } from 'src/bulletin/bulletin.service';
 import { StorageService } from 'src/storage/storage.service';
 import { Logger } from '@nestjs/common';
+import { ParametreBulletinService } from 'src/parametre-bulletin/parametre-bulletin.service';
 
 @Processor('lot')
 export class LotConsumer extends WorkerHost {
@@ -13,6 +14,7 @@ export class LotConsumer extends WorkerHost {
     private readonly pdf: PdfMaker,
     private readonly bulletinService: BulletinService,
     private readonly storageService: StorageService,
+    private readonly parametreBulletinService: ParametreBulletinService,
   ) {
     super();
   }
@@ -22,7 +24,9 @@ export class LotConsumer extends WorkerHost {
 
     if (name === 'generatebulletin') {
       const { bulletin, olds, lot, contrat } = job.data;
-      const url = await this.pdf.make(bulletin, olds, lot, contrat);
+      const parametre = await this.parametreBulletinService.findByAnnee(lot.annee);
+      const couleur = parametre?.couleur ?? '#fac66b';
+      const url = await this.pdf.make(bulletin, olds, lot, contrat, couleur);
       await this.bulletinService.update(bulletin._id, { url });
       return { url };
     }

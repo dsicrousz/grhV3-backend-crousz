@@ -32,6 +32,14 @@ export class BulletinService extends AbstractModel<Bulletin,CreateBulletinDto,Up
     }
   }
 
+  async deleteByEmploye(employeId: string): Promise<number> {
+    try {
+      return (await this.bulletinModel.deleteMany({ employe: employeId })).deletedCount;
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
+
   async updateBulletin(idEmp:string,bulletin:CreateBulletinDto): Promise<Bulletin>{
     try {
       return await this.bulletinModel.findOneAndUpdate({employe:idEmp},bulletin,{upsert:true});
@@ -50,7 +58,12 @@ export class BulletinService extends AbstractModel<Bulletin,CreateBulletinDto,Up
 
   async findByEmploye(id:string):Promise<Bulletin[]>{
     try {
-      return await this.bulletinModel.find({employe:id});
+      return await this.bulletinModel.aggregate([
+        { $match: { employe: new Types.ObjectId(id) } },
+        { $lookup: { from: 'lots', localField: 'lot', foreignField: '_id', as: 'lot' } },
+        { $unwind: '$lot' },
+        { $sort: { 'lot.annee': -1, 'lot.mois': -1 } },
+      ]);
     } catch (error) {
       throw new HttpException(error.message, 500);
     }

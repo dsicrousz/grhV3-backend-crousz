@@ -8,6 +8,17 @@ import { diskStorage } from 'multer';
 import { HistoriqueModule } from 'src/historique/historique.module';
 import { StorageService } from 'src/storage/storage.service';
 import { S3StorageEngine } from 'src/storage/s3-storage.engine';
+import { ContratModule } from 'src/contrat/contrat.module';
+import { NominationModule } from 'src/nomination/nomination.module';
+import { BulletinModule } from 'src/bulletin/bulletin.module';
+import { BulletinCDDModule } from 'src/bulletin-cdd/bulletin-cdd.module';
+import { BulletinTemporaireModule } from 'src/bulletin-temporaire/bulletin-temporaire.module';
+import { AffectationSiteModule } from 'src/affectation-site/affectation-site.module';
+import { AttributionIndividuelleModule } from 'src/attribution-individuelle/attribution-individuelle.module';
+import { ExclusionSpecifiqueModule } from 'src/exclusion-specifique/exclusion-specifique.module';
+import { AbsenceModule } from 'src/absence/absence.module';
+import { CongeModule } from 'src/conge/conge.module';
+import { PieceJointeModule } from 'src/piece-jointe/piece-jointe.module';
 
 @Module({
   imports:[
@@ -32,6 +43,17 @@ import { S3StorageEngine } from 'src/storage/s3-storage.engine';
       inject: [StorageService],
     }),
     HistoriqueModule,
+    ContratModule,
+    NominationModule,
+    BulletinModule,
+    BulletinCDDModule,
+    BulletinTemporaireModule,
+    AffectationSiteModule,
+    AttributionIndividuelleModule,
+    ExclusionSpecifiqueModule,
+    AbsenceModule,
+    CongeModule,
+    PieceJointeModule,
   ],
   controllers: [EmployeController],
   providers: [EmployeService],

@@ -5,6 +5,7 @@ import { PdfMaker } from 'src/helpers/pdf.maker';
 import { BulletinTemporaireService } from 'src/bulletin-temporaire/bulletin-temporaire.service';
 import { LotTemporaireService } from './lot-temporaire.service';
 import { StorageService } from 'src/storage/storage.service';
+import { ParametreBulletinService } from 'src/parametre-bulletin/parametre-bulletin.service';
 
 @Processor('lot-temporaire')
 export class LotTemporaireConsumer extends WorkerHost {
@@ -15,6 +16,7 @@ export class LotTemporaireConsumer extends WorkerHost {
         private readonly bulletinService: BulletinTemporaireService,
         private readonly lotService: LotTemporaireService,
         private readonly storageService: StorageService,
+        private readonly parametreBulletinService: ParametreBulletinService,
     ) {
         super();
     }
@@ -25,7 +27,9 @@ export class LotTemporaireConsumer extends WorkerHost {
         if (name === 'generatealltemporaire') {
             // Generation du PDF global avec tous les bulletins TEMPORAIRE
             const { bulletins, lot } = job.data;
-            const url = await this.pdf.makeAllTemporaire(bulletins, lot);
+            const parametre = await this.parametreBulletinService.findByAnnee(lot.annee);
+            const couleur = parametre?.couleur ?? '#fac66b';
+            const url = await this.pdf.makeAllTemporaire(bulletins, lot, couleur);
             // Mise a jour de l URL du lot
             await this.lotService.update(lot._id, { url });
             return { url };

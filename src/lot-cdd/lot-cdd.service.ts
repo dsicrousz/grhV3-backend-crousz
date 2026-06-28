@@ -4,7 +4,7 @@ import { UpdateLotCDDDto } from './dto/update-lot-cdd.dto';
 import { AbstractModel } from 'src/packe/abstractmodel';
 import { LotCDD, LotCDDDocument, StateLotCDD } from './entities/lot-cdd.entity';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 @Injectable()
 export class LotCDDService extends AbstractModel<LotCDD, CreateLotCDDDto, UpdateLotCDDDto> {
@@ -27,6 +27,43 @@ export class LotCDDService extends AbstractModel<LotCDD, CreateLotCDDDto, Update
     async findAllValide(): Promise<LotCDD[]> {
         try {
             return await this.lotModel.find({ etat: StateLotCDD.VALIDE });
+        } catch (error) {
+            throw new HttpException(error.message, 500);
+        }
+    }
+
+    async findAllTransmitted(): Promise<LotCDD[]> {
+        try {
+            return await this.lotModel.find({ isTransmitted: true }).lean();
+        } catch (error) {
+            throw new HttpException(error.message, 500);
+        }
+    }
+
+    async findOneWithBulletins(id: string): Promise<any> {
+        try {
+            const lots = await this.lotModel.aggregate([
+                { $match: { _id: new Types.ObjectId(id) } },
+                {
+                    $lookup: {
+                        from: 'bulletincdds',
+                        localField: '_id',
+                        foreignField: 'lot',
+                        as: 'bulletins',
+                    },
+                },
+                {
+                    $addFields: {
+                        bulletinsCount: { $size: '$bulletins' },
+                        totalNap: { $sum: '$bulletins.nap' },
+                        totalIm: { $sum: '$bulletins.totalIm' },
+                        totalNI: { $sum: '$bulletins.totalNI' },
+                        totalRet: { $sum: '$bulletins.totalRet' },
+                        totalPP: { $sum: '$bulletins.totalPP' },
+                    },
+                },
+            ]);
+            return lots[0] ?? null;
         } catch (error) {
             throw new HttpException(error.message, 500);
         }
@@ -75,6 +112,22 @@ export class LotCDDService extends AbstractModel<LotCDD, CreateLotCDDDto, Update
     async validate(id: string): Promise<LotCDD> {
         try {
             return await this.lotModel.findByIdAndUpdate(id, { etat: StateLotCDD.VALIDE });
+        } catch (error) {
+            throw new HttpException(error.message, 500);
+        }
+    }
+
+    async transmit(id: string): Promise<LotCDD> {
+        try {
+            return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: true }, { new: true });
+        } catch (error) {
+            throw new HttpException(error.message, 500);
+        }
+    }
+
+    async untransmit(id: string): Promise<LotCDD> {
+        try {
+            return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: false }, { new: true });
         } catch (error) {
             throw new HttpException(error.message, 500);
         }

@@ -5,6 +5,7 @@ import { PdfMaker } from 'src/helpers/pdf.maker';
 import { BulletinCDDService } from 'src/bulletin-cdd/bulletin-cdd.service';
 import { LotCDDService } from './lot-cdd.service';
 import { StorageService } from 'src/storage/storage.service';
+import { ParametreBulletinService } from 'src/parametre-bulletin/parametre-bulletin.service';
 
 @Processor('lot-cdd')
 export class LotCDDConsumer extends WorkerHost {
@@ -15,6 +16,7 @@ export class LotCDDConsumer extends WorkerHost {
         private readonly bulletinService: BulletinCDDService,
         private readonly lotService: LotCDDService,
         private readonly storageService: StorageService,
+        private readonly parametreBulletinService: ParametreBulletinService,
     ) {
         super();
     }
@@ -25,7 +27,9 @@ export class LotCDDConsumer extends WorkerHost {
         if (name === 'generatebulletincdd') {
             // Generation du PDF individuel
             const { bulletin, lot, contrat } = job.data;
-            const url = await this.pdf.makeCDD(bulletin, lot, contrat);
+            const parametre = await this.parametreBulletinService.findByAnnee(lot.annee);
+            const couleur = parametre?.couleur ?? '#fac66b';
+            const url = await this.pdf.makeCDD(bulletin, lot, contrat, couleur);
             await this.bulletinService.update(bulletin._id, { url });
             return { url };
         }
@@ -33,7 +37,9 @@ export class LotCDDConsumer extends WorkerHost {
         if (name === 'generateallcdd') {
             // Generation du PDF global avec tous les bulletins CDD
             const { bulletins, lot } = job.data;
-            const url = await this.pdf.makeAllCdd(bulletins, lot);
+            const parametre = await this.parametreBulletinService.findByAnnee(lot.annee);
+            const couleur = parametre?.couleur ?? '#fac66b';
+            const url = await this.pdf.makeAllCdd(bulletins, lot, couleur);
             // Mise a jour de l URL du lot
             await this.lotService.update(lot._id, { url });
             return { url };

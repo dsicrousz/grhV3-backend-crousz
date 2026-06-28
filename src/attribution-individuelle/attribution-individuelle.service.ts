@@ -27,4 +27,12 @@ export class AttributionIndividuelleService extends AbstractModel<AttributionInd
       throw new HttpException(error.message,500)
     }
   }
+
+  async deleteByEmploye(employeId: string): Promise<number> {
+    try {
+      return (await this.attributionIndividuelleModel.deleteMany({ employe: employeId } as any)).deletedCount;
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
 }

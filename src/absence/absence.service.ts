@@ -215,4 +215,13 @@ export class AbsenceService extends AbstractModel<Absence, CreateAbsenceDto, Upd
       throw new HttpException(error.message, 500);
     }
   }
+
+  async deleteByEmploye(employeId: string): Promise<number> {
+    try {
+      return (await this.absenceModel.deleteMany({ employe: employeId } as any)).deletedCount;
+    } catch (error) {
+      this.logger.error(`Erreur lors de la suppression des absences pour l'employé ${employeId}`, error);
+      throw new HttpException(error.message, 500);
+    }
+  }
 }

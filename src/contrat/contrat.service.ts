@@ -95,7 +95,7 @@ export class ContratService extends AbstractModel<Contrat, CreateContratDto, Upd
 
     async findActiveByEmploye(employeId: string): Promise<Contrat> {
         try {
-            return await this.contratModel.findOne({ employe: employeId, est_actif: true }).populate('categorie');
+            return await this.contratModel.findOne({ employe: employeId, est_actif: true }).populate('categorie').populate('poste');
         } catch (error) {
             throw new HttpException(error.message, 500);
         }
@@ -104,6 +104,22 @@ export class ContratService extends AbstractModel<Contrat, CreateContratDto, Upd
     async findByType(type: TypeContrat): Promise<Contrat[]> {
         try {
             return await this.contratModel.find({ type, est_actif: true }).sort({ date_debut: -1 });
+        } catch (error) {
+            throw new HttpException(error.message, 500);
+        }
+    }
+
+    async findFirstContratByEmploye(employeId: string): Promise<Contrat | null> {
+        try {
+            return await this.contratModel.findOne({ employe: employeId, type: { $ne: TypeContrat.TEMPORAIRE } }).sort({ date_debut: 1 });
+        } catch (error) {
+            throw new HttpException(error.message, 500);
+        }
+    }
+
+    async deleteByEmploye(employeId: string): Promise<number> {
+        try {
+            return (await this.contratModel.deleteMany({ employe: employeId })).deletedCount;
         } catch (error) {
             throw new HttpException(error.message, 500);
         }

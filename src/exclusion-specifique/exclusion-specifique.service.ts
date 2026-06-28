@@ -27,4 +27,12 @@ export class ExclusionSpecifiqueService extends AbstractModel<ExclusionSpecifiqu
       throw new HttpException(error.message,500)
     }
   }
+
+  async deleteByEmploye(employeId: string): Promise<number> {
+    try {
+      return (await this.exclusionSpecifiqueModel.deleteMany({ employe: employeId })).deletedCount;
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
 }

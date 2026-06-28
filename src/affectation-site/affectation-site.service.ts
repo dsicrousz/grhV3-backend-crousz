@@ -66,6 +66,14 @@ export class AffectationSiteService extends AbstractModel<AffectationSite, Creat
         }
     }
 
+    async deleteByEmploye(employeId: string): Promise<number> {
+        try {
+            return (await this.affectationSiteModel.deleteMany({ employe: employeId })).deletedCount;
+        } catch (error) {
+            throw new HttpException(error.message, 500);
+        }
+    }
+
     async findActiveByEmploye(employeId: string): Promise<AffectationSite> {
         try {
             return await this.affectationSiteModel.findOne({ employe: employeId, est_active: true });

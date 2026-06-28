@@ -35,6 +35,9 @@ export class LotTemporaire {
     @Prop({ type: Boolean, default: false })
     isPublished: boolean;
 
+     @Prop({type:Boolean, default: false,required: true})
+    isTransmitted:boolean;
+
     @Prop({ type: String })
     url: string;
 }

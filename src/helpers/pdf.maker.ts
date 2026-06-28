@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import PdfPrinter from 'pdfmake';
+const  PdfPrinter = require('pdfmake');
 import { Bulletin } from 'src/bulletin/entities/bulletin.entity';
 import { Lot } from 'src/lot/entities/lot.entity';
 import { Calcul } from './calcul';
@@ -7,7 +7,6 @@ import { format, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { flatten, round } from 'lodash';
 import { StorageService } from 'src/storage/storage.service';
-import { Readable } from 'stream';
 
 const fonts = {
   TmesNewRoman: {
@@ -24,12 +23,16 @@ const fonts = {
   },
 };
 
+ PdfPrinter.addFonts(fonts);
+
+PdfPrinter.setLocalAccessPolicy((path: string) => path.startsWith('src/helpers/'));
+PdfPrinter.setUrlAccessPolicy(() => false);
+
 const formatNumber = (n: number) =>
   String(n).replace(/(.)(?=(\d{3})+$)/g, '$1 ');
 
 @Injectable()
 export class PdfMaker {
-  private printer = new PdfPrinter(fonts);
   private readonly logger = new Logger(PdfMaker.name);
 
   constructor(private readonly storageService: StorageService) {}
@@ -37,37 +40,23 @@ export class PdfMaker {
   /**
    * Upload un PDF vers S3 et retourne la clé (chemin relatif)
    */
-  private async uploadPdf(pdfDoc: PDFKit.PDFDocument, key: string): Promise<string> {
+  private async uploadPdf(pdfDoc: any, key: string): Promise<string> {
     if (this.storageService.isEnabled()) {
-      const chunks: Buffer[] = [];
-      const stream = new Readable({
-        read() {}
-      });
-
-      pdfDoc.on('data', (chunk: Buffer) => {
-        chunks.push(chunk);
-        stream.push(chunk);
-      });
-      pdfDoc.on('end', () => {
-        stream.push(null);
-      });
-
-      pdfDoc.end();
-
-      const uploaded = await this.storageService.upload(key, stream, 'application/pdf');
+      const buffer = await pdfDoc.getBuffer();
+      const uploaded = await this.storageService.upload(key, buffer, 'application/pdf');
       this.logger.log(`Bulletin uploadé: ${key}`);
       return uploaded.key;
     } else {
       // Fallback vers stockage local
       const { createWriteStream } = await import('fs');
       const filePath = `uploads/${key}`;
-      pdfDoc.pipe(createWriteStream(filePath));
-      pdfDoc.end();
+      const stream = await pdfDoc.getStream();
+      stream.pipe(createWriteStream(filePath));
       return filePath;
     }
   }
 
-  async make(bulletin: Bulletin, olds: Bulletin[], lot: Lot, contrat?: any) {
+  async make(bulletin: Bulletin, olds: Bulletin[], lot: Lot, contrat?: any, couleur = '#fac66b') {
     const { mois, annee, debut, fin, etat, _id: idlot } = lot;
     const employe = bulletin['employe'] as any;
     const cal = new Calcul();
@@ -183,7 +172,7 @@ export class PdfMaker {
         },
         {
           margin: [6, 15],
-          fillColor: '#fac66b',
+          fillColor: couleur,
           alignment: 'center',
           layout: 'noBorders',
           table: {
@@ -788,7 +777,7 @@ export class PdfMaker {
       styles: {
         header: {
           border: [true, true, true, true],
-          fillColor: '#fac66b',
+          fillColor: couleur,
           bold: true,
           alignment: 'center',
           fontSize: 6,
@@ -811,14 +800,14 @@ export class PdfMaker {
           lineHeight: 0.8,
         },
         header3: {
-          fillColor: '#fac66b',
+          fillColor: couleur,
           bold: true,
           alignment: 'center',
           fontSize: 6,
           lineHeight: 0.8,
         },
         header4: {
-          fillColor: '#fac66b',
+          fillColor: couleur,
           bold: true,
           alignment: 'right',
           fontSize: 6,
@@ -827,7 +816,7 @@ export class PdfMaker {
         total: {
           bold: true,
           fontSize: 6,
-          fillColor: '#fac66b',
+          fillColor: couleur,
           alignment: 'center',
           lineHeight: 0.8,
         },
@@ -838,14 +827,14 @@ export class PdfMaker {
         },
       },
     };
-    const pdfDoc = this.printer.createPdfKitDocument(docDefinition as any);
+    const pdfDoc = PdfPrinter.createPdf(docDefinition as any);
     const key = `bulletins/${idlot}-${employe._id}-${mois}-${annee}.pdf`;
     return await this.uploadPdf(pdfDoc, key);
   }
 
 
 
-  async makeCDD(bulletin: Bulletin, lot: Lot, contrat?: any) {
+  async makeCDD(bulletin: Bulletin, lot: Lot, contrat?: any, couleur = '#fac66b') {
     const { mois, annee, debut, fin, etat, _id: idlot } = lot;
     const employe = bulletin['employe'] as any;
     const debutStr = format(parse(debut, 'yyyy-MM-dd', new Date()), 'dd', { locale: fr });
@@ -955,7 +944,7 @@ export class PdfMaker {
         },
         {
           margin: [6, 15],
-          fillColor: '#fac66b',
+          fillColor: couleur,
           alignment: 'center',
           layout: 'noBorders',
           table: {
@@ -985,7 +974,7 @@ export class PdfMaker {
                 {},
               ],
               [
-                { text: `Emploi : CDD `, fontSize: 9, bold: true, colSpan: 2 },
+                { text: `Emploi : ${contrat?.poste?.nom ?? 'N/A'}`, fontSize: 9, bold: true, colSpan: 2 },
                 {},
               ],
             ],
@@ -1041,7 +1030,7 @@ export class PdfMaker {
       defaultStyle: { font: 'Roboto' },
     };
 
-    const pdfDoc = this.printer.createPdfKitDocument(docDefinition as any);
+    const pdfDoc = PdfPrinter.createPdf(docDefinition as any);
     const key = `bulletins/cdd/${idlot}-${employe._id}-${mois}-${annee}.pdf`;
     return await this.uploadPdf(pdfDoc, key);
   }
@@ -1050,6 +1039,7 @@ export class PdfMaker {
     bulletins: Bulletin[],
     lot: Lot,
     prevR: Lot[] | null,
+    couleur = '#fac66b',
   ) {
     const grandeLigne = [];
     let totalGrandeLigne = { brut: 0, retenues: 0, pp:0, avantages: 0, nap: 0,brutGlobal:0 };
@@ -1076,7 +1066,7 @@ export class PdfMaker {
       styles: {
         header: {
           border: [true, true, true, true],
-          fillColor: '#fac66b',
+          fillColor: couleur,
           bold: true,
           alignment: 'center',
           fontSize: 6,
@@ -1099,14 +1089,14 @@ export class PdfMaker {
           lineHeight: 0.8,
         },
         header3: {
-          fillColor: '#fac66b',
+          fillColor: couleur,
           bold: true,
           alignment: 'center',
           fontSize: 6,
           lineHeight: 0.8,
         },
         header4: {
-          fillColor: '#fac66b',
+          fillColor: couleur,
           bold: true,
           alignment: 'right',
           fontSize: 6,
@@ -1115,7 +1105,7 @@ export class PdfMaker {
         total: {
           bold: true,
           fontSize: 6,
-          fillColor: '#fac66b',
+          fillColor: couleur,
           alignment: 'center',
           lineHeight: 0.8,
         },
@@ -1251,7 +1241,7 @@ export class PdfMaker {
           },
           {
             margin: [50, 5],
-            fillColor: '#fac66b',
+            fillColor: couleur,
             alignment: 'center',
             layout: 'noBorders',
             table: {
@@ -1953,7 +1943,7 @@ export class PdfMaker {
       },
       {
         margin: [30, 5],
-        fillColor: '#fac66b',
+        fillColor: couleur,
         alignment: 'center',
         layout: 'noBorders',
         table: {
@@ -2121,7 +2111,7 @@ export class PdfMaker {
       },
       {
         margin: [30, 5],
-        fillColor: '#fac66b',
+        fillColor: couleur,
         alignment: 'center',
         layout: 'noBorders',
         table: {
@@ -2265,7 +2255,7 @@ export class PdfMaker {
       },
       {
         margin: [30, 5],
-        fillColor: '#fac66b',
+        fillColor: couleur,
         alignment: 'center',
         layout: 'noBorders',
         table: {
@@ -2513,7 +2503,7 @@ export class PdfMaker {
       },
       {
         margin: [30, 15],
-        fillColor: '#fac66b',
+        fillColor: couleur,
         alignment: 'center',
         layout: 'noBorders',
         table: {
@@ -2805,7 +2795,7 @@ export class PdfMaker {
       },
       {
         margin: [50, 10],
-        fillColor: '#fac66b',
+        fillColor: couleur,
         alignment: 'center',
         layout: 'noBorders',
         table: {
@@ -3097,7 +3087,7 @@ export class PdfMaker {
       },
       {
         margin: [30, 15],
-        fillColor: '#fac66b',
+        fillColor: couleur,
         alignment: 'center',
         layout: 'noBorders',
         table: {
@@ -3386,7 +3376,7 @@ export class PdfMaker {
       },
       {
         margin: [30, 15],
-        fillColor: '#fac66b',
+        fillColor: couleur,
         alignment: 'center',
         layout: 'noBorders',
         table: {
@@ -3635,7 +3625,7 @@ export class PdfMaker {
       },
       {
         margin: [30, 15],
-        fillColor: '#fac66b',
+        fillColor: couleur,
         alignment: 'center',
         layout: 'noBorders',
         table: {
@@ -3847,15 +3837,14 @@ export class PdfMaker {
       },
     ]);
     const options = {};
-    const pdfDoc = this.printer.createPdfKitDocument(docDefinition as any, options);
+    const pdfDoc = PdfPrinter.createPdf(docDefinition as any, options);
     const key = `bulletins/${_id.toString()}-${mois}-${annee}.pdf`;
     return this.uploadPdf(pdfDoc, key);
   }
 
-  async makeAllCdd(bulletins: any[], lot: any) {
+  async makeAllCdd(bulletins: any[], lot: any, couleur = '#fac66b') {
     const { mois, annee, etat, _id, debut, fin } = lot;
     const wm = etat === 'VALIDE' ? annee : 'BROUILLON';
-
     // Calcul du total NAP
     const totalNap = bulletins.reduce((acc, b) => acc + (b.nap || 0), 0);
 
@@ -3878,7 +3867,7 @@ export class PdfMaker {
         {
           columns: [
             {
-              width: '20%',
+              width: '50%',
               alignment: 'left',
               stack: [
                 {
@@ -3922,6 +3911,20 @@ export class PdfMaker {
               ],
             },
             {
+              width: '50%',
+              alignment: 'right',
+              stack: [
+                {
+                  image: 'src/helpers/logo.png',
+                  width: 80,
+                  margin: [10, 2],
+                },
+              ],
+            },
+          ],
+          margin: [0, 0, 0, 20],
+        },
+         {
               width: '60%',
               alignment: 'center',
               stack: [
@@ -3938,20 +3941,6 @@ export class PdfMaker {
                 },
               ],
             },
-            {
-              width: '20%',
-              alignment: 'right',
-              stack: [
-                {
-                  image: 'src/helpers/logo.png',
-                  width: 80,
-                  margin: [10, 2],
-                },
-              ],
-            },
-          ],
-          margin: [0, 0, 0, 20],
-        },
         {
           margin: [2, 10, 0, 10],
           layout: {
@@ -3960,7 +3949,7 @@ export class PdfMaker {
             },
           },
           table: {
-            widths: [30, '*', '*', '*', 120],
+            widths: [30, 80, '*', '*', 80],
             headerRows: 1,
             body: [
               [
@@ -3980,11 +3969,11 @@ export class PdfMaker {
                   { text: i + 1, style: 'header2' },
                   { text: b.employe?.nom || '', style: 'header2' },
                   { text: b.employe?.prenom || '', style: 'header2' },
-                  { text: b['contrat_actif']?.poste?.nom || 'N/A', style: 'header2' },
+                  { text: b.contrat_actif.poste.nom, style: 'header2' },
                   { text: formatNumber(b.nap || 0), style: 'nombre' },
                 ]),
               [
-                { text: 'TOTAL', bold: true, colSpan: 4, fillColor: '#fac66b' },
+                { text: 'TOTAL', bold: true, colSpan: 4, fillColor: couleur },
                 '',
                 '',
                 '',
@@ -4003,7 +3992,7 @@ export class PdfMaker {
       styles: {
         header: {
           border: [true, true, true, true],
-          fillColor: '#fac66b',
+          fillColor: couleur,
           bold: true,
           alignment: 'center',
           fontSize: 8,
@@ -4020,7 +4009,7 @@ export class PdfMaker {
           bold: true,
         },
         header3: {
-          fillColor: '#fac66b',
+          fillColor: couleur,
           bold: true,
           alignment: 'center',
           fontSize: 8,
@@ -4028,12 +4017,12 @@ export class PdfMaker {
       },
     };
 
-    const pdfDoc = this.printer.createPdfKitDocument(docDefinition as any);
+    const pdfDoc = PdfPrinter.createPdf(docDefinition as any);
     const key = `bulletins/cdd/${_id.toString()}-${mois}-${annee}-all.pdf`;
     return await this.uploadPdf(pdfDoc, key);
   }
 
-  async makeAllTemporaire(bulletins: any[], lot: any) {
+  async makeAllTemporaire(bulletins: any[], lot: any, couleur = '#fac66b') {
     const { mois, annee, etat, _id, debut, fin } = lot;
     const wm = etat === 'VALIDE' ? annee : 'BROUILLON';
 
@@ -4059,7 +4048,7 @@ export class PdfMaker {
         {
           columns: [
             {
-              width: '20%',
+              width: '50%',
               alignment: 'left',
               stack: [
                 {
@@ -4103,6 +4092,20 @@ export class PdfMaker {
               ],
             },
             {
+              width: '50%',
+              alignment: 'right',
+              stack: [
+                {
+                  image: 'src/helpers/logo.png',
+                  width: 80,
+                  margin: [10, 2],
+                },
+              ],
+            },
+          ],
+          margin: [0, 0, 0, 20],
+        },
+         {
               width: '60%',
               alignment: 'center',
               stack: [
@@ -4119,20 +4122,6 @@ export class PdfMaker {
                 },
               ],
             },
-            {
-              width: '20%',
-              alignment: 'right',
-              stack: [
-                {
-                  image: 'src/helpers/logo.png',
-                  width: 80,
-                  margin: [10, 2],
-                },
-              ],
-            },
-          ],
-          margin: [0, 0, 0, 20],
-        },
         {
           margin: [2, 10, 0, 10],
           layout: {
@@ -4141,7 +4130,7 @@ export class PdfMaker {
             },
           },
           table: {
-            widths: [30, '*', '*', '*', 120],
+            widths: [30, 60, '*', '*', 90],
             headerRows: 1,
             body: [
               [
@@ -4165,7 +4154,7 @@ export class PdfMaker {
                   { text: formatNumber(b.nap || 0), style: 'nombre' },
                 ]),
               [
-                { text: 'TOTAL', bold: true, colSpan: 4, fillColor: '#fac66b' },
+                { text: 'TOTAL', bold: true, colSpan: 4, fillColor: couleur },
                 '',
                 '',
                 '',
@@ -4213,7 +4202,7 @@ export class PdfMaker {
                   { text: formatNumber(b.nap || 0), style: 'nombre' },
                 ]),
               [
-                { text: 'TOTAL', bold: true, colSpan: 4, fillColor: '#fac66b' },
+                { text: 'TOTAL', bold: true, colSpan: 4, fillColor: couleur },
                 '',
                 '',
                 '',
@@ -4232,7 +4221,7 @@ export class PdfMaker {
       styles: {
         header: {
           border: [true, true, true, true],
-          fillColor: '#fac66b',
+          fillColor: couleur,
           bold: true,
           alignment: 'center',
           fontSize: 8,
@@ -4249,7 +4238,7 @@ export class PdfMaker {
           bold: true,
         },
         header3: {
-          fillColor: '#fac66b',
+          fillColor: couleur,
           bold: true,
           alignment: 'center',
           fontSize: 8,
@@ -4257,7 +4246,7 @@ export class PdfMaker {
       },
     };
 
-    const pdfDoc = this.printer.createPdfKitDocument(docDefinition as any);
+    const pdfDoc = PdfPrinter.createPdf(docDefinition as any);
     const key = `bulletins/temporaires/${_id.toString()}-${mois}-${annee}-all.pdf`;
     return await this.uploadPdf(pdfDoc, key);
   }

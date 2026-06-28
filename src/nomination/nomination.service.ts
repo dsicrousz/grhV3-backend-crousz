@@ -75,4 +75,12 @@ export class NominationService extends AbstractModel<Nomination,CreateNomination
       throw new HttpException(error.message,500)
     }
   }
+
+  async deleteByEmploye(employeId: string): Promise<number> {
+    try {
+      return (await this.nominationModel.deleteMany({ employe: employeId })).deletedCount;
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
 }

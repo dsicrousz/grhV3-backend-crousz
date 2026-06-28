@@ -32,6 +32,42 @@ export class LotService extends AbstractModel<Lot,CreateLotDto,UpdateLotDto>{
       }
   }
 
+  async findAllTransmitted(): Promise<Lot[]> {
+      try {
+        return await this.lotModel.find({ isTransmitted: true }).lean();
+      } catch (error) {
+        throw new HttpException(error.message, 500);
+      }
+  }
+
+  async findOneWithBulletins(id: string): Promise<any> {
+      try {
+        const lots = await this.lotModel.aggregate([
+          { $match: { _id: new Types.ObjectId(id) } },
+          {
+            $lookup: {
+              from: 'bulletins',
+              localField: '_id',
+              foreignField: 'lot',
+              as: 'bulletins',
+            },
+          },
+          {
+            $addFields: {
+              bulletinsCount: { $size: '$bulletins' },
+              totalNap: { $sum: '$bulletins.nap' },
+              totalIm: { $sum: '$bulletins.totalIm' },
+              totalNI: { $sum: '$bulletins.totalNI' },
+              totalRet: { $sum: '$bulletins.totalRet' },
+              totalPP: { $sum: '$bulletins.totalPP' },
+            },
+          },
+        ]);
+        return lots[0] ?? null;
+      } catch (error) {
+        throw new HttpException(error.message, 500);
+      }
+  }
 
   async submit(id: string): Promise<Lot> {
     try {
@@ -78,6 +114,38 @@ export class LotService extends AbstractModel<Lot,CreateLotDto,UpdateLotDto>{
       return await this.lotModel.findByIdAndUpdate(id, { etat: StateLot.VALIDE });
     } catch (error) {
       throw new HttpException(error.message,500);
+    }
+  }
+
+  async publish(id: string): Promise<Lot> {
+    try {
+      return await this.lotModel.findByIdAndUpdate(id, { isPublished: true }, { new: true });
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
+
+  async unpublish(id: string): Promise<Lot> {
+    try {
+      return await this.lotModel.findByIdAndUpdate(id, { isPublished: false }, { new: true });
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
+
+  async transmit(id: string): Promise<Lot> {
+    try {
+      return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: true }, { new: true });
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
+
+  async untransmit(id: string): Promise<Lot> {
+    try {
+      return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: false }, { new: true });
+    } catch (error) {
+      throw new HttpException(error.message, 500);
     }
   }
 

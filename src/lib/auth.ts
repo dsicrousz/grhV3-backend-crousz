@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { admin } from "better-auth/plugins";
+import { apiKey } from "@better-auth/api-key";
 import { ac, roles } from "./permissions";
 import 'dotenv/config';
 
@@ -47,6 +48,9 @@ export const auth = betterAuth({
       ac,
       roles,
       defaultRole: 'user',
+    }),
+    apiKey({
+      enableSessionForAPIKeys: true,
     }),
   ],
   secret: BETTER_AUTH_SECRET,

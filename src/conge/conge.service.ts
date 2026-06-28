@@ -232,4 +232,13 @@ export class CongeService extends AbstractModel<Conge, CreateCongeDto, UpdateCon
       throw new HttpException(error.message, 500);
     }
   }
+
+  async deleteByEmploye(employeId: string): Promise<number> {
+    try {
+      return (await this.congeModel.deleteMany({ employe: employeId } as any)).deletedCount;
+    } catch (error) {
+      this.logger.error(`Erreur lors de la suppression des congés pour l'employé ${employeId}`, error);
+      throw new HttpException(error.message, 500);
+    }
+  }
 }
