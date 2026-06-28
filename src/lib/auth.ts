@@ -40,7 +40,7 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false,
+    requireEmailVerification: true,
     autoSignIn: true,
   },
   socialProviders: GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET ? {
