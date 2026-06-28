@@ -3,6 +3,7 @@ import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { admin } from "better-auth/plugins";
 import { apiKey } from "@better-auth/api-key";
+import { dash } from "@better-auth/infra";
 import { ac, roles } from "./permissions";
 import 'dotenv/config';
 
@@ -52,6 +53,7 @@ export const auth = betterAuth({
     apiKey({
       enableSessionForAPIKeys: true,
     }),
+     dash()
   ],
   secret: BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
