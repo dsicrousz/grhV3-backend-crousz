@@ -25,6 +25,8 @@ if (process.env.NODE_ENV === 'production' && !BETTER_AUTH_API_KEY) {
   throw new Error('BETTER_AUTH_API_KEY is required in production environment variables for the dash plugin');
 }
 
+console.log("BETTER_AUTH_API_KEY", BETTER_AUTH_API_KEY)
+
 const allowedOrigins = FRONTEND_URLS.split(',').map(url => url.trim());
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
