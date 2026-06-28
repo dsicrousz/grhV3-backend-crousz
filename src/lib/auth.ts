@@ -46,11 +46,13 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
     autoSignIn: true,
+    disableSignUp:true
   },
   socialProviders: GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET ? {
     google: {
       clientId: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
+      disableSignUp: true,
     },
   } : {},
   plugins: [
