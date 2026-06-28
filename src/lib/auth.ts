@@ -74,7 +74,7 @@ export const auth = betterAuth({
     cookiePrefix: 'better-auth',
     useSecureCookies: process.env.NODE_ENV === 'production',
     crossSubDomainCookies: {
-      enabled: false,
+      enabled: true,
     },
   },
   session: {
