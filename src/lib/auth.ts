@@ -11,6 +11,7 @@ import 'dotenv/config';
 const MONGODB_URL = process.env.MONGODB_URL || 'mongodb://127.0.0.1:27017/refgrh';
 const BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET;
 const FRONTEND_URLS = process.env.FRONTEND_URLS;
+const BETTER_AUTH_API_KEY = process.env.BETTER_AUTH_API_KEY;
 
 if (!BETTER_AUTH_SECRET) {
   throw new Error('BETTER_AUTH_SECRET is required in environment variables');
@@ -18,6 +19,10 @@ if (!BETTER_AUTH_SECRET) {
 
 if (!FRONTEND_URLS) {
   throw new Error('FRONTEND_URLS is required in environment variables');
+}
+
+if (process.env.NODE_ENV === 'production' && !BETTER_AUTH_API_KEY) {
+  throw new Error('BETTER_AUTH_API_KEY is required in production environment variables for the dash plugin');
 }
 
 const allowedOrigins = FRONTEND_URLS.split(',').map(url => url.trim());
@@ -53,9 +58,9 @@ export const auth = betterAuth({
     apiKey({
       enableSessionForAPIKeys: true,
     }),
-     dash({
-      apiKey:"ba_ibt2xgrmkakdc9kbb4r0r7z8ykfsbb7u", 
-     })
+    dash({
+      apiKey: BETTER_AUTH_API_KEY,
+    }),
   ],
   secret: BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
