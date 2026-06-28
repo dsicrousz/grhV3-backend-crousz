@@ -32,6 +32,16 @@ export const auth = betterAuth({
     client,
     transaction: false
   }),
+  account:{
+    accountLinking: {
+			enabled: true, // Enable/disable linking (default: true)
+			trustedProviders: ["google", "github"], // Auto-link without email verification
+			disableImplicitLinking: false, // Require explicit linking via settings
+			allowDifferentEmails: false, // Allow linking accounts with different emails
+			updateUserInfoOnLink: false, // Sync provider profile to user on link
+			allowUnlinkingAll: false, // Allow removing all linked accounts
+		}
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
