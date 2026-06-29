@@ -119,6 +119,7 @@ export class StorageService {
             Key: key,
             Body: body,
             ContentType: mimetype,
+            CacheControl: 'no-store, no-cache, must-revalidate',
         };
 
         try {
