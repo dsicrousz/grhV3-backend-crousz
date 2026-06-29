@@ -31,15 +31,15 @@ import { Employe } from 'src/employe/entities/employe.entity';
 import { Impot } from 'src/impot/entities/impot.entity';
 import { ContratService } from 'src/contrat/contrat.service';
 import { TypeContrat } from 'src/contrat/entities/contrat.entity';
-import { Roles } from 'src/common/guards';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 import { readFile } from 'node:fs/promises';
 import { Types } from 'mongoose';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+// import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { ParametreBulletinService } from 'src/parametre-bulletin/parametre-bulletin.service';
 
 @Controller('lot')
-@Roles('admin', 'csa','rh')
+@Roles(['admin', 'csa', 'rh', 'dsi'])
 export class LotController {
   constructor(private readonly lotService: LotService,
     private readonly employeService: EmployeService,
@@ -58,11 +58,12 @@ export class LotController {
     ) {}
 
   @Post()
+  @UserHasPermission({ permission: { lot: ['create'] } })
   create(@Body() createLotDto: CreateLotDto) {
     return this.lotService.createLot(createLotDto);
   }
  
-  @AllowAnonymous()
+  // @AllowAnonymous()
   @Post('import-legacy/lots')
   @UseInterceptors(AnyFilesInterceptor())
   async importLegacyLots(
@@ -99,7 +100,7 @@ export class LotController {
     }
   }
 
-  @AllowAnonymous()
+  // @AllowAnonymous()
   @Post('import-legacy/bulletins')
   @UseInterceptors(AnyFilesInterceptor())
   async importLegacyBulletins(
@@ -164,7 +165,7 @@ export class LotController {
       }
   }
 
-  @AllowAnonymous()
+  // @AllowAnonymous()
   @Post('regenerate-pdf/:id')
   async regeneratePdf(@Param('id') id: string) {
     try {
@@ -490,6 +491,7 @@ export class LotController {
   }
 
   @Get()
+  @UserHasPermission({ permission: { lot: ['list'] } })
   async findAll() {
     const lots = await this.lotService.findAll();
     return lots.map(lot => {
@@ -516,11 +518,13 @@ export class LotController {
   }
 
   @Get('transmis')
+  @UserHasPermission({ permission: { lot: ['list'] } })
   async findAllTransmitted() {
     return this.lotService.findAllTransmitted();
   }
 
   @Get(':id/detail')
+  @UserHasPermission({ permission: { lot: ['read'] } })
   async findOneWithBulletins(@Param('id') id: string) {
     const lot = await this.lotService.findOneWithBulletins(id);
     if (!lot) {
@@ -530,16 +534,19 @@ export class LotController {
   }
 
   @Get(':id')
+  @UserHasPermission({ permission: { lot: ['read'] } })
   async findOne(@Param('id') id: string) {
     return await this.lotService.findOne(id);
   }
 
   @Patch(':id')
+  @UserHasPermission({ permission: { lot: ['update'] } })
   update(@Param('id') id: string, @Body() updateLotDto: UpdateLotDto) {
     return this.lotService.update(id, updateLotDto);
   }
 
   @Delete(':id')
+  @UserHasPermission({ permission: { lot: ['delete'] } })
   async remove(@Param('id') id: string) {
     // Récupérer les bulletins pour avoir les URLs
     const bulletins = await this.bulletinService.findByLot(id);

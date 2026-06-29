@@ -5,8 +5,10 @@ import { UpdateAttributionFonctionnelleDto } from './dto/update-attribution-fonc
 import { ExclusionSpecifiqueService } from 'src/exclusion-specifique/exclusion-specifique.service';
 import { NominationService } from 'src/nomination/nomination.service';
 import { differenceBy, flattenDeep } from 'lodash';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 
 @Controller('attribution-fonctionnelle')
+@Roles(['admin', 'rh', 'csa', 'dsi'])
 export class AttributionFonctionnelleController {
   constructor(
     private readonly attributionFonctionnelleService: AttributionFonctionnelleService,
@@ -15,16 +17,19 @@ export class AttributionFonctionnelleController {
     ) {}
 
   @Post()
+  @UserHasPermission({ permission: { attribution: ['create'] } })
   create(@Body() createAttributionFonctionnelleDto: CreateAttributionFonctionnelleDto) {
     return this.attributionFonctionnelleService.create(createAttributionFonctionnelleDto);
   }
 
   @Get()
+  @UserHasPermission({ permission: { attribution: ['list'] } })
   findAll() {
     return this.attributionFonctionnelleService.findAll();
   }
 
   @Get('byemploye/:id')
+  @UserHasPermission({ permission: { attribution: ['read'] } })
   async findByEmploye(@Param('id') id: string) {
    const [nomactive,excs] = await Promise.all([
     this.nominationService.findActiveByEmploye(id),
@@ -39,16 +44,19 @@ export class AttributionFonctionnelleController {
   }
 
   @Get(':id')
+  @UserHasPermission({ permission: { attribution: ['read'] } })
   findOne(@Param('id') id: string) {
     return this.attributionFonctionnelleService.findOne(id);
   }
 
   @Patch(':id')
+  @UserHasPermission({ permission: { attribution: ['update'] } })
   update(@Param('id') id: string, @Body() updateAttributionFonctionnelleDto: UpdateAttributionFonctionnelleDto) {
     return this.attributionFonctionnelleService.update(id, updateAttributionFonctionnelleDto);
   }
 
   @Delete(':id')
+  @UserHasPermission({ permission: { attribution: ['delete'] } })
   remove(@Param('id') id: string) {
     return this.attributionFonctionnelleService.remove(id);
   }

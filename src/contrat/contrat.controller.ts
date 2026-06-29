@@ -1,22 +1,24 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ContratService } from './contrat.service';
-import { Roles } from 'src/common/guards';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 import { CreateContratDto } from './dto/create-contrat.dto';
 import { UpdateContratDto } from './dto/update-contrat.dto';
 import { TerminerContratDto } from './dto/terminer-contrat.dto';
 import { MotifTerminaison, TypeContrat } from './entities/contrat.entity';
 
 @Controller('contrat')
-@Roles('admin', 'rh')
+@Roles(['admin', 'rh', 'csa', 'dsi'])
 export class ContratController {
     constructor(private readonly contratService: ContratService) {}
 
     @Post()
+    @UserHasPermission({ permission: { contrat: ['create'] } })
     create(@Body() createContratDto: CreateContratDto) {
         return this.contratService.create(createContratDto);
     }
 
     @Get()
+    @UserHasPermission({ permission: { contrat: ['list'] } })
     findAll() {
         return this.contratService.findAll();
     }
@@ -46,11 +48,13 @@ export class ContratController {
     }
 
     @Get(':id')
+    @UserHasPermission({ permission: { contrat: ['read'] } })
     findOne(@Param('id') id: string) {
         return this.contratService.findOne(id);
     }
 
     @Patch(':id')
+    @UserHasPermission({ permission: { contrat: ['update'] } })
     update(@Param('id') id: string, @Body() updateContratDto: UpdateContratDto) {
         return this.contratService.update(id, updateContratDto);
     }
@@ -61,6 +65,7 @@ export class ContratController {
     }
 
     @Delete(':id')
+    @UserHasPermission({ permission: { contrat: ['delete'] } })
     remove(@Param('id') id: string) {
         return this.contratService.remove(id);
     }

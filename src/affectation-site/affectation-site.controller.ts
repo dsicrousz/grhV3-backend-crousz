@@ -2,17 +2,21 @@ import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/commo
 import { AffectationSiteService } from './affectation-site.service';
 import { CreateAffectationSiteDto } from './dto/create-affectation-site.dto';
 import { UpdateAffectationSiteDto } from './dto/update-affectation-site.dto';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 
 @Controller('affectation-site')
+@Roles(['admin', 'rh', 'csa', 'dsi'])
 export class AffectationSiteController {
     constructor(private readonly affectationSiteService: AffectationSiteService) {}
 
     @Post()
+    @UserHasPermission({ permission: { affectation: ['create'] } })
     create(@Body() createDto: CreateAffectationSiteDto) {
         return this.affectationSiteService.create(createDto);
     }
 
     @Get()
+    @UserHasPermission({ permission: { affectation: ['list'] } })
     findAll() {
         return this.affectationSiteService.findAll();
     }
@@ -53,11 +57,13 @@ export class AffectationSiteController {
     }
 
     @Get(':id')
+    @UserHasPermission({ permission: { affectation: ['read'] } })
     findOne(@Param('id') id: string) {
         return this.affectationSiteService.findOne(id);
     }
 
     @Patch(':id')
+    @UserHasPermission({ permission: { affectation: ['update'] } })
     update(@Param('id') id: string, @Body() updateDto: UpdateAffectationSiteDto) {
         return this.affectationSiteService.update(id, updateDto);
     }
@@ -68,6 +74,7 @@ export class AffectationSiteController {
     }
 
     @Delete(':id')
+    @UserHasPermission({ permission: { affectation: ['delete'] } })
     remove(@Param('id') id: string) {
         return this.affectationSiteService.remove(id);
     }

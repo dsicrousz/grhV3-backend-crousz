@@ -59,7 +59,7 @@ export const auth = betterAuth({
     admin({
       ac,
       roles,
-      defaultRole: 'user',
+      defaultRole: 'dsi',
     }),
     apiKey({
       enableSessionForAPIKeys: true,

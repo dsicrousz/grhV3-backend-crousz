@@ -48,7 +48,8 @@ export class S3StorageEngine implements StorageEngine {
         const prefix = this.options.prefix ?? 'uploads';
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         const ext = file.originalname.split('.').pop() ?? 'bin';
-        const key = `${prefix}/${uniqueSuffix}.${ext}`;
+        const baseFilename = `${uniqueSuffix}.${ext}`;
+        const key = `${prefix}/${baseFilename}`;
 
         this.logger.log(`Upload démarré: ${key} (${file.originalname}, ${file.mimetype})`);
 
@@ -63,8 +64,8 @@ export class S3StorageEngine implements StorageEngine {
                 const size = byteCounter.getByteCount();
                 this.logger.log(`Upload réussi: ${key} → ${uploaded.url} (${size} bytes)`);
                 cb(null, {
-                    filename: key,
-                    path: uploaded.url,
+                    filename: baseFilename,
+                    path: key,
                     size: size,
                     mimetype: file.mimetype,
                 });
@@ -80,7 +81,7 @@ export class S3StorageEngine implements StorageEngine {
         file: Express.Multer.File,
         cb: (error: Error | null) => void,
     ): void {
-        const key = file.filename;
+        const key = file.path ?? file.filename;
         this.storageService
             .delete(key)
             .then(() => cb(null))

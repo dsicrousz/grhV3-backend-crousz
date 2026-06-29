@@ -1,9 +1,10 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ReportingService } from './reporting.service';
-import { Roles } from 'src/common/guards';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 
 @Controller('reporting')
-@Roles('admin', 'rh', 'csa')
+@Roles(['admin', 'rh', 'csa', 'dsi'])
+@UserHasPermission({ permission: { reporting: ['read'] } })
 export class ReportingController {
     constructor(private readonly reportingService: ReportingService) {}
 

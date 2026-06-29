@@ -25,9 +25,11 @@ import { Figuration } from 'src/figuration/entities/figuration.entity';
 import { TYPE_RUBRIQUE } from 'src/rubrique/entities/rubrique.entity';
 import { TypeContrat } from 'src/contrat/entities/contrat.entity';
 
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 import { Calcul } from 'src/helpers/calcul';
 
 @Controller('lot-cdd')
+@Roles(['admin', 'csa', 'rh', 'dsi'])
 export class LotCDDController {
     constructor(
         private readonly lotService: LotCDDService,
@@ -41,11 +43,13 @@ export class LotCDDController {
     ) {}
 
     @Post()
+    @UserHasPermission({ permission: { lot: ['create'] } })
     create(@Body() createLotDto: CreateLotCDDDto) {
         return this.lotService.createLot(createLotDto);
     }
 
     @Get()
+    @UserHasPermission({ permission: { lot: ['list'] } })
     async findAll() {
         const lots = await this.lotService.findAll();
         return lots.map(lot => {
@@ -57,11 +61,13 @@ export class LotCDDController {
     }
 
     @Get('transmis')
+    @UserHasPermission({ permission: { lot: ['list'] } })
     async findAllTransmitted() {
         return this.lotService.findAllTransmitted();
     }
 
     @Get(':id/detail')
+    @UserHasPermission({ permission: { lot: ['read'] } })
     async findOneWithBulletins(@Param('id') id: string) {
         const lot = await this.lotService.findOneWithBulletins(id);
         if (!lot) {
@@ -71,16 +77,19 @@ export class LotCDDController {
     }
 
     @Get(':id')
+    @UserHasPermission({ permission: { lot: ['read'] } })
     findOne(@Param('id') id: string) {
         return this.lotService.findOne(id);
     }
 
     @Patch(':id')
+    @UserHasPermission({ permission: { lot: ['update'] } })
     update(@Param('id') id: string, @Body() updateLotDto: UpdateLotCDDDto) {
         return this.lotService.update(id, updateLotDto);
     }
 
     @Delete(':id')
+    @UserHasPermission({ permission: { lot: ['delete'] } })
     async remove(@Param('id') id: string) {
         // Récupérer les bulletins pour avoir les URLs
         const bulletins = await this.bulletinService.findByLot(id);
@@ -122,6 +131,7 @@ export class LotCDDController {
     }
 
     @Patch('validate/:id')
+    @UserHasPermission({ permission: { lot: ['calculate'] } })
     async validate(@Param('id') id: string) {
         const lot = await this.lotService.validate(id);
         await this.generateBulletin(id);
@@ -164,6 +174,7 @@ export class LotCDDController {
     // -------------------- GÉNÉRATION DES BULLETINS CDD --------------------
 
     @Post('generate/:id')
+    @UserHasPermission({ permission: { lot: ['calculate'] } })
     async generateBulletin(@Param('id') id: string) {
         const lot = await this.lotService.findOne(id);
         const employes = (await this.employeService.findAllAgregated()).filter(

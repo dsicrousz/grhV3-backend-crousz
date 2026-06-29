@@ -4,7 +4,7 @@ import { EmployeService } from './employe.service';
 import { CreateEmployeDto } from './dto/create-employe.dto';
 import { UpdateEmployeDto } from './dto/update-employe.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Roles } from 'src/common/guards';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 
 /**
  * employee controller CRUD 
@@ -14,21 +14,23 @@ import { Roles } from 'src/common/guards';
  * @typedef {EmployeController}
  */
 @Controller('employe')
-@Roles('admin', 'rh','csa')
+@Roles(['admin', 'rh', 'csa', 'dsi'])
 export class EmployeController {
   constructor(private readonly employeService: EmployeService) {}
 
 
   @Post()
+  @UserHasPermission({ permission: { employe: ['create'] } })
   @UseInterceptors(FileInterceptor('profile'))
   create(@UploadedFile() profile: Express.Multer.File,@Body() createEmployeDto: CreateEmployeDto) {
     if(profile){
-      createEmployeDto.profile  = profile.filename;
+      createEmployeDto.profile = profile.filename;
     }
     return this.employeService.create(createEmployeDto);
   }
 
   @Get()
+  @UserHasPermission({ permission: { employe: ['list'] } })
   findAll() {
     return this.employeService.findAll();
   }
@@ -57,11 +59,13 @@ export class EmployeController {
   }
 
   @Get(':id')
+  @UserHasPermission({ permission: { employe: ['read'] } })
   findOne(@Param('id') id: string) {
     return this.employeService.findOne(id);
   }
 
   @Patch(':id')
+  @UserHasPermission({ permission: { employe: ['update'] } })
   update(@Param('id') id: string, @Body() updateEmployeDto: UpdateEmployeDto) {
     return this.employeService.update(id, updateEmployeDto);
   }
@@ -70,7 +74,7 @@ export class EmployeController {
   @UseInterceptors(FileInterceptor('profile'))
   async updateProfile(@UploadedFile() profile: Express.Multer.File,@Param('id') id: string,@Body() updateEmployeDto: UpdateEmployeDto) {
     if(profile){
-      updateEmployeDto.profile  = profile.filename;
+      updateEmployeDto.profile = profile.filename;
       return this.employeService.update(id,updateEmployeDto);
     }
    throw new HttpException("Profile Non Uploade !!",500);
@@ -83,6 +87,7 @@ export class EmployeController {
 
 
   @Delete(':id')
+  @UserHasPermission({ permission: { employe: ['delete'] } })
   remove(@Param('id') id: string) {
     return this.employeService.remove(id);
   }

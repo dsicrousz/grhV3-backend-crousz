@@ -12,9 +12,11 @@ import { BulletinTemporaireService } from 'src/bulletin-temporaire/bulletin-temp
 import { EmployeService } from 'src/employe/employe.service';
 import { ContratService } from 'src/contrat/contrat.service';
 import { StorageService } from 'src/storage/storage.service';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 import { TypeContrat } from 'src/contrat/entities/contrat.entity';
 
 @Controller('lot-temporaire')
+@Roles(['admin', 'csa', 'rh', 'dsi'])
 export class LotTemporaireController {
     constructor(
         private readonly lotService: LotTemporaireService,
@@ -26,21 +28,25 @@ export class LotTemporaireController {
     ) {}
 
     @Post()
+    @UserHasPermission({ permission: { lot: ['create'] } })
     create(@Body() createLotDto: CreateLotTemporaireDto) {
         return this.lotService.createLot(createLotDto);
     }
 
     @Get()
+    @UserHasPermission({ permission: { lot: ['list'] } })
     findAll() {
      return this.lotService.findAll();     
     }
 
     @Get('transmis')
+    @UserHasPermission({ permission: { lot: ['list'] } })
     async findAllTransmitted() {
         return this.lotService.findAllTransmitted();
     }
 
     @Get(':id/detail')
+    @UserHasPermission({ permission: { lot: ['read'] } })
     async findOneWithBulletins(@Param('id') id: string) {
         const lot = await this.lotService.findOneWithBulletins(id);
         if (!lot) {
@@ -50,16 +56,19 @@ export class LotTemporaireController {
     }
 
     @Get(':id')
+    @UserHasPermission({ permission: { lot: ['read'] } })
     findOne(@Param('id') id: string) {
        return this.lotService.findOne(id)
     }
 
     @Patch(':id')
+    @UserHasPermission({ permission: { lot: ['update'] } })
     update(@Param('id') id: string, @Body() updateLotDto: UpdateLotTemporaireDto) {
         return this.lotService.update(id, updateLotDto);
     }
 
     @Delete(':id')
+    @UserHasPermission({ permission: { lot: ['delete'] } })
     async remove(@Param('id') id: string) {
         // Récupérer les bulletins pour avoir les URLs
         const bulletins = await this.bulletinService.findByLot(id);
@@ -98,6 +107,7 @@ export class LotTemporaireController {
     }
 
     @Patch('validate/:id')
+    @UserHasPermission({ permission: { lot: ['calculate'] } })
     async validate(@Param('id') id: string) {
         const lot = await this.lotService.validate(id);
         await this.generateBulletin(id);
@@ -135,6 +145,7 @@ export class LotTemporaireController {
     // -------------------- GÉNÉRATION DES BULLETINS TEMPORAIRE --------------------
 
     @Post('generate/:id')
+    @UserHasPermission({ permission: { lot: ['calculate'] } })
     async generateBulletin(@Param('id') id: string, @Body() body?: { postes?: string[] }) {
         const lot = await this.lotService.findOne(id);
         // Pour les temporaires, pas de bulletins individuels, seulement le bulletin global

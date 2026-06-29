@@ -7,14 +7,15 @@ import { PieceJointeService } from './piece-jointe.service';
 import { CreatePieceJointeDto } from './dto/create-piece-jointe.dto';
 import { UpdatePieceJointeDto } from './dto/update-piece-jointe.dto';
 import { TypePieceJointe } from './entities/piece-jointe.entity';
-import { Roles } from 'src/common/guards';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 
 @Controller('piece-jointe')
-@Roles('admin', 'rh')
+@Roles(['admin', 'rh', 'csa', 'dsi'])
 export class PieceJointeController {
     constructor(private readonly pieceJointeService: PieceJointeService) {}
 
     @Post()
+    @UserHasPermission({ permission: { pieceJointe: ['create'] } })
     @UseInterceptors(FileInterceptor('fichier'))
     create(
         @UploadedFile() fichier: Express.Multer.File,
@@ -33,6 +34,7 @@ export class PieceJointeController {
     }
 
     @Get()
+    @UserHasPermission({ permission: { pieceJointe: ['list'] } })
     findAll() {
         return this.pieceJointeService.findAll();
     }
@@ -66,11 +68,13 @@ export class PieceJointeController {
     }
 
     @Get(':id')
+    @UserHasPermission({ permission: { pieceJointe: ['read'] } })
     findOne(@Param('id') id: string) {
         return this.pieceJointeService.findOne(id);
     }
 
     @Patch(':id')
+    @UserHasPermission({ permission: { pieceJointe: ['update'] } })
     @UseInterceptors(FileInterceptor('fichier'))
     async update(
         @Param('id') id: string,
@@ -87,11 +91,13 @@ export class PieceJointeController {
     }
 
     @Delete(':id')
+    @UserHasPermission({ permission: { pieceJointe: ['delete'] } })
     softDelete(@Param('id') id: string) {
         return this.pieceJointeService.softDelete(id);
     }
 
     @Delete(':id/permanent')
+    @UserHasPermission({ permission: { pieceJointe: ['delete'] } })
     hardDelete(@Param('id') id: string) {
         return this.pieceJointeService.hardDelete(id);
     }

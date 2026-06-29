@@ -5,17 +5,21 @@ import { UpdateAbsenceDto } from './dto/update-absence.dto';
 import { ValidateAbsenceDto } from './dto/validate-absence.dto';
 import { StatutDemande } from './entities/absence.entity';
 import { WorkflowAction } from 'src/workflow/entities/workflow-step.entity';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 
 @Controller('absence')
+@Roles(['admin', 'rh', 'csa', 'dsi'])
 export class AbsenceController {
   constructor(private readonly absenceService: AbsenceService) {}
 
   @Post()
+  @UserHasPermission({ permission: { absence: ['create'] } })
   create(@Body() createAbsenceDto: CreateAbsenceDto) {
     return this.absenceService.create(createAbsenceDto);
   }
 
   @Get()
+  @UserHasPermission({ permission: { absence: ['list'] } })
   findAll() {
     return this.absenceService.findAll();
   }
@@ -54,26 +58,31 @@ export class AbsenceController {
   }
 
   @Get(':id')
+  @UserHasPermission({ permission: { absence: ['read'] } })
   findOne(@Param('id') id: string) {
     return this.absenceService.findOne(id);
   }
 
   @Patch(':id')
+  @UserHasPermission({ permission: { absence: ['update'] } })
   update(@Param('id') id: string, @Body() updateAbsenceDto: UpdateAbsenceDto) {
     return this.absenceService.update(id, updateAbsenceDto);
   }
 
   @Patch(':id/validate')
+  @UserHasPermission({ permission: { absence: ['validate'] } })
   validateAbsence(@Param('id') id: string, @Body() validateAbsenceDto: ValidateAbsenceDto) {
     return this.absenceService.validateAbsence(id, validateAbsenceDto);
   }
 
   @Patch(':id/reject')
+  @UserHasPermission({ permission: { absence: ['validate'] } })
   rejectAbsence(@Param('id') id: string) {
     return this.absenceService.rejectAbsence(id);
   }
 
   @Delete(':id')
+  @UserHasPermission({ permission: { absence: ['delete'] } })
   remove(@Param('id') id: string) {
     return this.absenceService.remove(id);
   }

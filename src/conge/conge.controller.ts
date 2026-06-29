@@ -5,17 +5,21 @@ import { UpdateCongeDto } from './dto/update-conge.dto';
 import { ValidateCongeDto } from './dto/validate-conge.dto';
 import { StatutDemandeConge } from './entities/conge.entity';
 import { WorkflowAction } from 'src/workflow/entities/workflow-step.entity';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 
 @Controller('conge')
+@Roles(['admin', 'rh', 'csa', 'dsi'])
 export class CongeController {
   constructor(private readonly congeService: CongeService) {}
 
   @Post()
+  @UserHasPermission({ permission: { conge: ['create'] } })
   create(@Body() createCongeDto: CreateCongeDto) {
     return this.congeService.create(createCongeDto);
   }
 
   @Get()
+  @UserHasPermission({ permission: { conge: ['list'] } })
   findAll() {
     return this.congeService.findAll();
   }
@@ -68,21 +72,25 @@ export class CongeController {
   }
 
   @Get(':id')
+  @UserHasPermission({ permission: { conge: ['read'] } })
   findOne(@Param('id') id: string) {
     return this.congeService.findOne(id);
   }
 
   @Patch(':id')
+  @UserHasPermission({ permission: { conge: ['update'] } })
   update(@Param('id') id: string, @Body() updateCongeDto: UpdateCongeDto) {
     return this.congeService.update(id, updateCongeDto);
   }
 
   @Patch(':id/validate')
+  @UserHasPermission({ permission: { conge: ['validate'] } })
   validateConge(@Param('id') id: string, @Body() validateCongeDto: ValidateCongeDto) {
     return this.congeService.validateConge(id, validateCongeDto);
   }
 
   @Delete(':id')
+  @UserHasPermission({ permission: { conge: ['delete'] } })
   remove(@Param('id') id: string) {
     return this.congeService.remove(id);
   }

@@ -2,27 +2,33 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestj
 import { WorkflowService } from './workflow.service';
 import { CreateWorkflowConfigDto, ProcessWorkflowDto } from './dto/create-workflow-step.dto';
 import { NiveauApprobation, WorkflowType } from './entities/workflow-step.entity';
+import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 
 @Controller('workflow')
+@Roles(['admin', 'rh', 'csa', 'dsi'])
 export class WorkflowController {
     constructor(private readonly workflowService: WorkflowService) {}
 
     @Post('config')
+    @UserHasPermission({ permission: { workflow: ['create'] } })
     createConfig(@Body() dto: CreateWorkflowConfigDto) {
         return this.workflowService.createConfig(dto);
     }
 
     @Get('config')
+    @UserHasPermission({ permission: { workflow: ['list'] } })
     getAllConfigs() {
         return this.workflowService.getAllConfigs();
     }
 
     @Get('config/:type')
+    @UserHasPermission({ permission: { workflow: ['read'] } })
     getConfig(@Param('type') type: WorkflowType) {
         return this.workflowService.getConfig(type);
     }
 
     @Patch('config/:id')
+    @UserHasPermission({ permission: { workflow: ['update'] } })
     updateConfig(@Param('id') id: string, @Body() dto: Partial<CreateWorkflowConfigDto>) {
         return this.workflowService.updateConfig(id, dto);
     }
@@ -75,6 +81,7 @@ export class WorkflowController {
     }
 
     @Delete(':demandeId')
+    @UserHasPermission({ permission: { workflow: ['delete'] } })
     deleteWorkflow(@Param('demandeId') demandeId: string) {
         return this.workflowService.deleteWorkflow(demandeId);
     }
