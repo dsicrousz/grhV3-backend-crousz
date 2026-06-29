@@ -8,13 +8,11 @@ export class BulletinTemporaireController {
     constructor(private readonly bulletinService: BulletinTemporaireService) {}
 
     @Get('employe/:id')
-    @UserHasPermission({ permission: { bulletin: ['read'] } })
     findByEmploye(@Param('id') id: string) {
         return this.bulletinService.findByEmploye(id);
     }
 
     @Get('lot/:id')
-    @UserHasPermission({ permission: { bulletin: ['list'] } })
     findByLot(@Param('id') id: string) {
         return this.bulletinService.findByLot(id);
     }

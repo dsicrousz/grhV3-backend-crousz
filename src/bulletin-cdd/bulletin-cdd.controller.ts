@@ -8,13 +8,11 @@ export class BulletinCDDController {
     constructor(private readonly bulletinService: BulletinCDDService) {}
 
     @Get('employe/:id')
-    @UserHasPermission({ permission: { bulletin: ['read'] } })
     findByEmploye(@Param('id') id: string) {
         return this.bulletinService.findByEmploye(id);
     }
 
     @Get('lot/:id')
-    @UserHasPermission({ permission: { bulletin: ['list'] } })
     findByLot(@Param('id') id: string) {
         return this.bulletinService.findByLot(id);
     }
