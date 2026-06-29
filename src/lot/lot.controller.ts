@@ -223,16 +223,6 @@ export class LotController {
     const bulletinsCreated = await this.bulletinService.findByLot(lot._id);
     const previousLots = await this.lotService.findByAnneeAndOldMois(lot.annee, lot.mois);
 
-    // generer le pdf du lot global
-    let urlLot;
-    try {
-      const parametre = await this.parametreBulletinService.findByAnnee(lot.annee);
-      const couleur = parametre?.couleur ?? '#fac66b';
-      urlLot = await this.pdf.makeAll(bulletinsCreated, lot, previousLots, couleur);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      throw new HttpException(error.message, 500);
-    }
     // Ajouter contrat_actif aux bulletins pour makeAll et récupérer pour la queue
     for (const b of bulletinsCreated) {
       const currentEmpId = (b.employe as any)?._id?.toString() ?? (b.employe as any)?.toString();
@@ -252,6 +242,17 @@ export class LotController {
       } catch (error) {
         throw new HttpException(error.message, 500);
       }
+    }
+
+    // generer le pdf du lot global (après chargement des contrats)
+    let urlLot;
+    try {
+      const parametre = await this.parametreBulletinService.findByAnnee(lot.annee);
+      const couleur = parametre?.couleur ?? '#fac66b';
+      urlLot = await this.pdf.makeAll(bulletinsCreated, lot, previousLots, couleur);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      throw new HttpException(error.message, 500);
     }
     return await this.lotService.update(lot._id, { url: urlLot });
   }
