@@ -30,7 +30,6 @@ export class EmployeController {
   }
 
   @Get()
-  @UserHasPermission({ permission: { employe: ['list'] } })
   findAll() {
     return this.employeService.findAll();
   }
