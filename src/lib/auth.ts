@@ -64,7 +64,7 @@ export const auth = betterAuth({
     apiKey({
       enableSessionForAPIKeys: true,
       rateLimit: {
-        timeWindow: 15 * 60 * 1000, // 15 minutes
+        timeWindow: 1 * 60 * 1000, // 1 minute
         maxRequests: 100 // limit each IP to 100 requests per timeWindow
       }
     })
