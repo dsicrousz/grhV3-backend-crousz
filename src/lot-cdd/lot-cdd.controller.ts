@@ -61,13 +61,11 @@ export class LotCDDController {
     }
 
     @Get('transmis')
-    @UserHasPermission({ permission: { lot: ['list'] } })
     async findAllTransmitted() {
         return this.lotService.findAllTransmitted();
     }
 
     @Get(':id/detail')
-    @UserHasPermission({ permission: { lot: ['read'] } })
     async findOneWithBulletins(@Param('id') id: string) {
         const lot = await this.lotService.findOneWithBulletins(id);
         if (!lot) {
