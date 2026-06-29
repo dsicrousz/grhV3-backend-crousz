@@ -47,6 +47,8 @@ export class StorageService {
         const publicUrl = this.configService.get<string>('STORAGE_PUBLIC_URL', '');
         const forcePathStyle = this.configService.get<string>('STORAGE_FORCE_PATH_STYLE', 'true') === 'true';
 
+        this.config = { endpoint: endpoint || '', region, accessKeyId: accessKeyId || '', secretAccessKey: secretAccessKey || '', bucket: bucket || '', publicUrl, forcePathStyle };
+
         if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
             this.logger.warn(
                 'Configuration S3 incomplète. Le stockage objet est désactivé. ' +
@@ -54,8 +56,6 @@ export class StorageService {
             );
             return;
         }
-
-        this.config = { endpoint, region, accessKeyId, secretAccessKey, bucket, publicUrl, forcePathStyle };
 
         this.client = new S3Client({
             endpoint,
