@@ -48,8 +48,10 @@ export class PdfMaker {
       return uploaded.key;
     } else {
       // Fallback vers stockage local
-      const { createWriteStream } = await import('fs');
+      const { createWriteStream, mkdirSync } = await import('fs');
+      const { dirname } = await import('path');
       const filePath = `uploads/${key}`;
+      mkdirSync(dirname(filePath), { recursive: true });
       const stream = await pdfDoc.getStream();
       stream.pipe(createWriteStream(filePath));
       return filePath;
