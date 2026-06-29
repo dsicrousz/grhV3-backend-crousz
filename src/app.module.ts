@@ -44,6 +44,7 @@ import { StorageModule } from './storage/storage.module';
 import { MotifRuptureModule } from './motif-rupture/motif-rupture.module';
 import { ParametreBulletinModule } from './parametre-bulletin/parametre-bulletin.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { SessionAuditModule } from './session-audit/session-audit.module';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     MotifRuptureModule,
     ParametreBulletinModule,
     LogAggregatorModule,
+    SessionAuditModule,
     AuthModule.forRoot({ auth }),
   ],
   providers: [AppService,
