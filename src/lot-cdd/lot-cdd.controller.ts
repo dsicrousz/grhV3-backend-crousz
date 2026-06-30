@@ -175,7 +175,7 @@ export class LotCDDController {
     @UserHasPermission({ permission: { lot: ['calculate'] } })
     async generateBulletin(@Param('id') id: string) {
         const lot = await this.lotService.findOne(id);
-        const employes = (await this.employeService.findAllAgregated()).filter(
+        const employes = (await this.employeService.findAllAgregated()).filter((emp) => emp.is_actif).filter(
             (emp) => emp.contrat_actif && emp.contrat_actif.type === TypeContrat.CDD,
         );
         const attG = await this.attributionGlobaleService.byTypeContrat(TypeContrat.CDD);

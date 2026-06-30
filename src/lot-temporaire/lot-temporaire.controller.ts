@@ -151,7 +151,7 @@ export class LotTemporaireController {
     }
 
     private async finalizeLotBulletins(lot: LotTemporaire, postesFilter?: string[]) {
-        const employes = (await this.employeService.findAllAgregated()).filter((emp) => {
+        const employes = (await this.employeService.findAllAgregated()).filter((emp) => emp.is_actif).filter((emp) => {
             if (!emp.contrat_actif || emp.contrat_actif.type !== TypeContrat.TEMPORAIRE) return false;
             if (postesFilter?.length) {
                 const posteId = emp.contrat_actif.poste?._id?.toString() ?? emp.contrat_actif.poste?.toString();

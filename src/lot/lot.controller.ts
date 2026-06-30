@@ -180,7 +180,7 @@ export class LotController {
   async generateBulletin(@Param('id') id: string) {
     try {
     const lot = await this.lotService.findOne(id);
-    const employes = (await this.employeService.findAllAgregated()).filter((emp) => emp.contrat_actif && emp.contrat_actif.type === TypeContrat.CDI);
+    const employes = (await this.employeService.findAllAgregated()).filter((emp) => emp.is_actif).filter((emp) => emp.contrat_actif && emp.contrat_actif.type === TypeContrat.CDI);
     const attG = await this.attributionGlobaleService.byTypeContrat(TypeContrat.CDI);
     const impots = await this.impotService.findAll();
     for (const emp of employes) {
@@ -370,6 +370,7 @@ export class LotController {
     await Promise.all(nomActive.map(async (n) =>{
         const attrFonc = (await this.attributionFonctionnelleService.findByFonction(n.fonction._id.toString()));
         const gains = differenceBy(attrFonc,exclSpec,(v) => v._id.toString()).filter(v => v.rubrique.type !== TYPE_RUBRIQUE.RETENUE);
+
         gains.sort((a,b) => a.rubrique.ordre - b.rubrique.ordre).map(r => {
       r.rubrique.regle_base = r.rubrique.regle_base.replaceAll('@','');
       r.rubrique.regle_montant = r.rubrique.regle_montant.replaceAll('@','');
