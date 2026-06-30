@@ -180,7 +180,7 @@ export class LotController {
   async generateBulletin(@Param('id') id: string) {
     try {
     const lot = await this.lotService.findOne(id);
-    const employes = (await this.employeService.findAllAgregated()).filter((emp) => emp.is_actif).filter((emp) => emp.contrat_actif && emp.contrat_actif.type === TypeContrat.CDI);
+    const employes = (await this.employeService.findAllAgregated()).filter((emp) => emp.is_actif && emp.contrat_actif && emp.contrat_actif.type === TypeContrat.CDI);
     const attG = await this.attributionGlobaleService.byTypeContrat(TypeContrat.CDI);
     const impots = await this.impotService.findAll();
     for (const emp of employes) {
