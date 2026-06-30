@@ -45,7 +45,6 @@ export class EmployeService extends AbstractModel<Employe, CreateEmployeDto, Upd
 
   async create(createDto: CreateEmployeDto): Promise<Employe> {
     const employe = await super.create(createDto);
-    await this.cacheManager.del('employes_all_agregated'); // Invalider le cache
     const auteur = getUserIdFromContext();
     await this.historiqueService.create({
       employe: employe._id,
@@ -155,13 +154,165 @@ export class EmployeService extends AbstractModel<Employe, CreateEmployeDto, Upd
     }
   }
 
-  async findAllAgregated(): Promise<(Employe & { contrat_actif?: any })[]> {
+  async findAllAgregatedActif(): Promise<(Employe & { contrat_actif?: any })[]> {
     try {
-      const cacheKey = 'employes_all_agregated';
-      const cached = await this.cacheManager.get(cacheKey);
-      if (cached) {
-        return cached as (Employe & { contrat_actif?: any })[];
-      }
+
+      const result = await this.employeModel.aggregate([
+        {
+          $match: { is_actif: { $in: [true, 1] } },
+        },
+        {
+          $addFields: {
+            _idstring: {
+              $toString: '$_id',
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'contrats',
+            localField: '_idstring',
+            foreignField: 'employe',
+            pipeline: [
+              { $match: { est_actif: true } },
+              { $sort: { date_debut: -1 } },
+              { $limit: 1 },
+              {
+                $addFields: {
+                  categorieObjId: { $toObjectId: '$categorie' },
+                },
+              },
+              {
+                $lookup: {
+                  from: 'categories',
+                  localField: 'categorieObjId',
+                  foreignField: '_id',
+                  as: 'categorie',
+                },
+              },
+              { $unwind: { path: '$categorie', preserveNullAndEmptyArrays: true } },
+              {
+                $addFields: {
+                  posteObjId: { $toObjectId: '$poste' },
+                },
+              },
+              {
+                $lookup: {
+                  from: 'postes',
+                  localField: 'posteObjId',
+                  foreignField: '_id',
+                  as: 'poste',
+                },
+              },
+              { $unwind: { path: '$poste', preserveNullAndEmptyArrays: true } },
+            ],
+            as: 'contrat_actif',
+          },
+        },
+        { $unwind: { path: '$contrat_actif', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'affectationsites',
+            localField: '_idstring',
+            foreignField: 'employe',
+            pipeline: [
+              { $match: { est_active: true } },
+              { $sort: { date_debut: -1 } },
+              { $limit: 1 },
+              {
+                $addFields: {
+                  siteObjId: { $toObjectId: '$site' },
+                  divisionObjId: { $toObjectId: '$division' },
+                  serviceObjId: { $toObjectId: '$service' },
+                },
+              },
+              {
+                $lookup: {
+                  from: 'sites',
+                  localField: 'siteObjId',
+                  foreignField: '_id',
+                  as: 'site',
+                },
+              },
+              { $unwind: { path: '$site', preserveNullAndEmptyArrays: true } },
+              {
+                $lookup: {
+                  from: 'divisions',
+                  localField: 'divisionObjId',
+                  foreignField: '_id',
+                  as: 'division',
+                },
+              },
+              { $unwind: { path: '$division', preserveNullAndEmptyArrays: true } },
+              {
+                $lookup: {
+                  from: 'services',
+                  localField: 'serviceObjId',
+                  foreignField: '_id',
+                  as: 'service',
+                },
+              },
+              { $unwind: { path: '$service', preserveNullAndEmptyArrays: true } },
+            ],
+            as: 'affectation_site',
+          },
+        },
+        { $unwind: { path: '$affectation_site', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'nominations',
+            localField: '_idstring',
+            foreignField: 'employe',
+            pipeline: [
+              { $match: { est_active: true } },
+              {
+                $addFields: {
+                  ofonction: { $toObjectId: '$fonction' },
+                  odivision: { $toObjectId: '$division' },
+                  oservice: { $toObjectId: '$service' },
+                },
+              },
+              {
+                $lookup: {
+                  from: 'fonctions',
+                  localField: 'ofonction',
+                  foreignField: '_id',
+                  as: 'fonction',
+                },
+              },
+              { $unwind: '$fonction' },
+              {
+                $lookup: {
+                  from: 'divisions',
+                  localField: 'odivision',
+                  foreignField: '_id',
+                  as: 'division',
+                },
+              },
+              { $unwind: '$division' },
+              {
+                $lookup: {
+                  from: 'services',
+                  localField: 'oservice',
+                  foreignField: '_id',
+                  as: 'service',
+                },
+              },
+              { $unwind: '$service' },
+            ],
+            as: 'nominations',
+          },
+        },
+      ]);
+
+      return result;
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
+
+   async findAllAgregated(): Promise<(Employe & { contrat_actif?: any })[]> {
+    try {
 
       const result = await this.employeModel.aggregate([
         {
@@ -308,7 +459,6 @@ export class EmployeService extends AbstractModel<Employe, CreateEmployeDto, Upd
         },
       ]);
 
-      await this.cacheManager.set(cacheKey, result, 300); // 5 minutes TTL
       return result;
     } catch (error) {
       throw new HttpException(error.message, 500);
@@ -413,7 +563,6 @@ export class EmployeService extends AbstractModel<Employe, CreateEmployeDto, Upd
         this.pieceJointeService.deleteByEmploye(id),
         this.historiqueService.deleteByEmploye(id),
       ]);
-      await this.cacheManager.del('employes_all_agregated');
       return await super.remove(id);
     } catch (error) {
       throw new HttpException(error.message, 500);

@@ -57,7 +57,7 @@ import { SessionAuditModule } from './session-audit/session-audit.module';
       useFactory: (config: ConfigService) => ({
         store: redisStore,
         url: config.get<string>('REDIS_URL'),
-        ttl: 300,
+        ttl: 60,
       }),
       inject: [ConfigService],
     }),

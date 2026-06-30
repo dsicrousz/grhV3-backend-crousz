@@ -40,6 +40,18 @@ export class BulletinService extends AbstractModel<Bulletin,CreateBulletinDto,Up
     }
   }
 
+  async deleteInactifByLot(lotId: string, activeEmployeIds: string[]): Promise<number> {
+    try {
+      const result = await this.bulletinModel.deleteMany({
+        lot: lotId,
+        employe: { $nin: activeEmployeIds },
+      } as any);
+      return result.deletedCount;
+    } catch (error) {
+      throw new HttpException(error.message, 500);
+    }
+  }
+
   async updateBulletin(idEmp:string,bulletin:CreateBulletinDto): Promise<Bulletin>{
     try {
       return await this.bulletinModel.findOneAndUpdate({employe:idEmp},bulletin,{upsert:true});

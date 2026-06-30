@@ -180,9 +180,10 @@ export class LotController {
   async generateBulletin(@Param('id') id: string) {
     try {
     const lot = await this.lotService.findOne(id);
-    const employes = (await this.employeService.findAllAgregated()).filter((emp) => emp.is_actif && emp.contrat_actif && emp.contrat_actif.type === TypeContrat.CDI);
+    const employes = (await this.employeService.findAllAgregatedActif()).filter((emp) => emp.contrat_actif && emp.contrat_actif.type === TypeContrat.CDI);
     const attG = await this.attributionGlobaleService.byTypeContrat(TypeContrat.CDI);
     const impots = await this.impotService.findAll();
+    const activeEmployeIds: string[] = [];
     for (const emp of employes) {
       const bulletin: CreateBulletinDto = { employe: emp._id.toString(), lignes: { gains: [], retenues: [] }, lot: lot._id, totalIm: 0, totalNI: 0, totalRet: 0, totalPP: 0, nap: 0 };
       const premierContrat = await this.contratService.findFirstContratByEmploye(emp._id.toString());
@@ -198,8 +199,9 @@ export class LotController {
         IPRES: 0,
       };
       await this.processBulletin(emp, bulletin, scopes, attG, impots);
+      activeEmployeIds.push(emp._id.toString());
     }
-    return this.finalizeLotBulletins(lot);
+    return this.finalizeLotBulletins(lot, activeEmployeIds);
     } catch (error) {
       console.error('Error generating bulletins:', error);
       throw new HttpException(error.message, 500);
@@ -219,7 +221,7 @@ export class LotController {
     await this.bulletinService.updateBulletin(emp._id, bulletin);
   }
 
-  private async finalizeLotBulletins(lot: Lot) {
+  private async finalizeLotBulletins(lot: Lot, activeEmployeIds: string[] = []) {
     const bulletinsCreated = await this.bulletinService.findByLot(lot._id);
     const previousLots = await this.lotService.findByAnneeAndOldMois(lot.annee, lot.mois);
 
@@ -249,12 +251,22 @@ export class LotController {
       }
     }
 
+    // Supprimer les bulletins d'employés désactivés pour ce lot
+    await this.bulletinService.deleteInactifByLot(lot._id, activeEmployeIds);
+
+    // Recharger les bulletins après nettoyage pour le PDF global
+    const bulletinsForPdf = await this.bulletinService.findByLot(lot._id);
+    for (const b of bulletinsForPdf) {
+      const empId = (b.employe as any)?._id?.toString() ?? (b.employe as any)?.toString();
+      (b as any).contrat_actif = contratsMap.get(empId);
+    }
+
     // generer le pdf du lot global (après chargement des contrats)
     let urlLot;
     try {
       const parametre = await this.parametreBulletinService.findByAnnee(lot.annee);
       const couleur = parametre?.couleur ?? '#fac66b';
-      urlLot = await this.pdf.makeAll(bulletinsCreated, lot, previousLots, couleur);
+      urlLot = await this.pdf.makeAll(bulletinsForPdf, lot, previousLots, couleur);
     } catch (error) {
       console.error('Error generating PDF:', error);
       throw new HttpException(error.message, 500);
