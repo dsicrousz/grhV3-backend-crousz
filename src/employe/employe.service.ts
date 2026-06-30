@@ -133,7 +133,7 @@ export class EmployeService extends AbstractModel<Employe, CreateEmployeDto, Upd
   }
 
   async toggleState(id: string, dto: { is_actif: boolean }): Promise<Employe> {
-    const employe = await this.employeModel.findByIdAndUpdate(id, dto, { new: true });
+    const employe = await this.employeModel.findByIdAndUpdate(id, dto, { returnDocument: 'after' });
     const typeEvenement = dto.is_actif ? TypeEvenement.ACTIVATION : TypeEvenement.DESACTIVATION;
     const description = dto.is_actif ? 'Activation du compte employé' : 'Désactivation du compte employé';
     const auteur = getUserIdFromContext();

@@ -46,7 +46,7 @@ export class AffectationSiteService extends AbstractModel<AffectationSite, Creat
     }
 
     async terminer(id: string): Promise<AffectationSite> {
-        const affectation = await this.affectationSiteModel.findByIdAndUpdate(id, { est_active: false, date_fin: new Date() }, { new: true });
+        const affectation = await this.affectationSiteModel.findByIdAndUpdate(id, { est_active: false, date_fin: new Date() }, { returnDocument: 'after' });
         const auteur = getUserIdFromContext();
         await this.historiqueService.create({
             employe: affectation.employe,

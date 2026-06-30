@@ -61,7 +61,7 @@ export class Contrat {
     @Prop({ type: String, enum: MotifTerminaison })
     motif_terminaison: MotifTerminaison;
 
-    @Prop({ type: Types.ObjectId, ref: Employe.name, required: true, autopopulate: true })
+    @Prop({ type: Types.ObjectId, ref: Employe.name, required: true, autopopulate: true, index: true })
     employe: string;
 }
 

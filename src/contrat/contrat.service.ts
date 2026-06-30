@@ -101,6 +101,25 @@ export class ContratService extends AbstractModel<Contrat, CreateContratDto, Upd
         }
     }
 
+    async findActiveByEmployes(employeIds: string[]): Promise<Map<string, Contrat>> {
+        try {
+            const contrats = await this.contratModel
+                .find({ employe: { $in: employeIds }, est_actif: true })
+                .populate('categorie')
+                .populate('poste');
+            const map = new Map<string, Contrat>();
+            for (const c of contrats) {
+                const empId = (c.employe as any)?._id?.toString() ?? c.employe?.toString();
+                if (empId && !map.has(empId)) {
+                    map.set(empId, c);
+                }
+            }
+            return map;
+        } catch (error) {
+            throw new HttpException(error.message, 500);
+        }
+    }
+
     async findByType(type: TypeContrat): Promise<Contrat[]> {
         try {
             return await this.contratModel.find({ type, est_actif: true }).sort({ date_debut: -1 });

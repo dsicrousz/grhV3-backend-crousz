@@ -55,7 +55,7 @@ export class AbsenceService extends AbstractModel<Absence, CreateAbsenceDto, Upd
         valide_par: validateDto.valide_par,
         date_validation: new Date()
       };
-      return this.absenceModel.findByIdAndUpdate(id, updateData, { new: true });
+      return this.absenceModel.findByIdAndUpdate(id, updateData, { returnDocument: 'after' });
     } catch (error) {
       this.logger.error(`Erreur lors de la validation de l'absence ${id}`, error);
       throw new HttpException(error.message, 500);

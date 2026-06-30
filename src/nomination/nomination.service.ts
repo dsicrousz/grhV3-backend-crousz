@@ -46,7 +46,7 @@ export class NominationService extends AbstractModel<Nomination,CreateNomination
   }
 
   async toggleState(id: string, dto: { est_active: boolean }): Promise<Nomination> {
-    const nomination = await this.nominationModel.findByIdAndUpdate(id, dto, { new: true });
+    const nomination = await this.nominationModel.findByIdAndUpdate(id, dto, { returnDocument: 'after' });
     const typeEvenement = dto.est_active ? TypeEvenement.NOMINATION : TypeEvenement.FIN_NOMINATION;
     const description = dto.est_active ? 'Réactivation de la nomination' : 'Fin de nomination';
     const auteur = getUserIdFromContext();

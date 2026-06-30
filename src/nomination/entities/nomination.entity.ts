@@ -19,7 +19,7 @@ export class Nomination {
     @Prop({type: Boolean, required: true, default: true})
     est_active: boolean;
 
-    @Prop({type: Types.ObjectId,ref:Employe.name, required: true, autopopulate: true})
+    @Prop({type: Types.ObjectId,ref:Employe.name, required: true, autopopulate: true, index: true})
     employe: string;
 
     @Prop({type: Types.ObjectId,ref: Fonction.name, required: true, autopopulate: true})

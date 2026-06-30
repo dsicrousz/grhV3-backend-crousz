@@ -119,7 +119,7 @@ export class LotService extends AbstractModel<Lot,CreateLotDto,UpdateLotDto>{
 
   async publish(id: string): Promise<Lot> {
     try {
-      return await this.lotModel.findByIdAndUpdate(id, { isPublished: true }, { new: true });
+      return await this.lotModel.findByIdAndUpdate(id, { isPublished: true }, { returnDocument: 'after' });
     } catch (error) {
       throw new HttpException(error.message, 500);
     }
@@ -127,7 +127,7 @@ export class LotService extends AbstractModel<Lot,CreateLotDto,UpdateLotDto>{
 
   async unpublish(id: string): Promise<Lot> {
     try {
-      return await this.lotModel.findByIdAndUpdate(id, { isPublished: false }, { new: true });
+      return await this.lotModel.findByIdAndUpdate(id, { isPublished: false }, { returnDocument: 'after' });
     } catch (error) {
       throw new HttpException(error.message, 500);
     }
@@ -135,7 +135,7 @@ export class LotService extends AbstractModel<Lot,CreateLotDto,UpdateLotDto>{
 
   async transmit(id: string): Promise<Lot> {
     try {
-      return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: true }, { new: true });
+      return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: true }, { returnDocument: 'after' });
     } catch (error) {
       throw new HttpException(error.message, 500);
     }
@@ -143,7 +143,7 @@ export class LotService extends AbstractModel<Lot,CreateLotDto,UpdateLotDto>{
 
   async untransmit(id: string): Promise<Lot> {
     try {
-      return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: false }, { new: true });
+      return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: false }, { returnDocument: 'after' });
     } catch (error) {
       throw new HttpException(error.message, 500);
     }

@@ -55,7 +55,7 @@ export class CongeService extends AbstractModel<Conge, CreateCongeDto, UpdateCon
         valide_par: validateDto.valide_par,
         date_validation: new Date()
       };
-      return this.congeModel.findByIdAndUpdate(id, updateData, { new: true });
+      return this.congeModel.findByIdAndUpdate(id, updateData, { returnDocument: 'after' });
     } catch (error) {
       this.logger.error(`Erreur lors de la validation du congé ${id}`, error);
       throw new HttpException(error.message, 500);

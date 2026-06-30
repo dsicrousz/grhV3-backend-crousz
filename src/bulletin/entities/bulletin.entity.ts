@@ -10,10 +10,10 @@ export class Bulletin {
 
     _id?: string;
 
-    @Prop({type: mongoose.Schema.Types.ObjectId,ref: Employe.name,required: true,autopopulate: true})
+    @Prop({type: mongoose.Schema.Types.ObjectId,ref: Employe.name,required: true,autopopulate: true, index: true})
     employe: string
 
-    @Prop({type: mongoose.Schema.Types.ObjectId,ref: Lot.name,required: true,autopopulate: {maxDepth: 2}})
+    @Prop({type: mongoose.Schema.Types.ObjectId,ref: Lot.name,required: true,autopopulate: {maxDepth: 2}, index: true})
     lot: string
 
     @Prop({type: Object, required: true})

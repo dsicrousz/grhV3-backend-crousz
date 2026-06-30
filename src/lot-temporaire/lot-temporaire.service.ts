@@ -127,7 +127,7 @@ export class LotTemporaireService extends AbstractModel<LotTemporaire, CreateLot
 
     async transmit(id: string): Promise<LotTemporaire> {
         try {
-            return await this.lotTemporaireModel.findByIdAndUpdate(id, { isTransmitted: true }, { new: true });
+            return await this.lotTemporaireModel.findByIdAndUpdate(id, { isTransmitted: true }, { returnDocument: 'after' });
         } catch (error) {
             throw new HttpException(error.message, 500);
         }
@@ -135,7 +135,7 @@ export class LotTemporaireService extends AbstractModel<LotTemporaire, CreateLot
 
     async untransmit(id: string): Promise<LotTemporaire> {
         try {
-            return await this.lotTemporaireModel.findByIdAndUpdate(id, { isTransmitted: false }, { new: true });
+            return await this.lotTemporaireModel.findByIdAndUpdate(id, { isTransmitted: false }, { returnDocument: 'after' });
         } catch (error) {
             throw new HttpException(error.message, 500);
         }

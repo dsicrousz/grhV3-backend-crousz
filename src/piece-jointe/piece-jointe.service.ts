@@ -65,7 +65,7 @@ export class PieceJointeService extends AbstractModel<PieceJointe, CreatePieceJo
 
     async softDelete(id: string): Promise<PieceJointe> {
         try {
-            return this.pieceJointeModel.findByIdAndUpdate(id, { est_actif: false }, { new: true });
+            return this.pieceJointeModel.findByIdAndUpdate(id, { est_actif: false }, { returnDocument: 'after' });
         } catch (error) {
             this.logger.error(`Erreur lors de la suppression douce de la pièce jointe ${id}`, error);
             throw new HttpException(error.message, 500);

@@ -59,7 +59,7 @@ export class WorkflowService {
 
     async updateConfig(id: string, dto: Partial<CreateWorkflowConfigDto>): Promise<WorkflowConfig> {
         try {
-            return this.workflowConfigModel.findByIdAndUpdate(id, dto, { new: true });
+            return this.workflowConfigModel.findByIdAndUpdate(id, dto, { returnDocument: 'after' });
         } catch (error) {
             this.logger.error('Erreur lors de la mise à jour de la configuration workflow', error);
             throw new HttpException(error.message, 500);

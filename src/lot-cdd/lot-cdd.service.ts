@@ -119,7 +119,7 @@ export class LotCDDService extends AbstractModel<LotCDD, CreateLotCDDDto, Update
 
     async transmit(id: string): Promise<LotCDD> {
         try {
-            return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: true }, { new: true });
+            return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: true }, { returnDocument: 'after' });
         } catch (error) {
             throw new HttpException(error.message, 500);
         }
@@ -127,7 +127,7 @@ export class LotCDDService extends AbstractModel<LotCDD, CreateLotCDDDto, Update
 
     async untransmit(id: string): Promise<LotCDD> {
         try {
-            return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: false }, { new: true });
+            return await this.lotModel.findByIdAndUpdate(id, { isTransmitted: false }, { returnDocument: 'after' });
         } catch (error) {
             throw new HttpException(error.message, 500);
         }

@@ -44,6 +44,7 @@ import { StorageModule } from './storage/storage.module';
 import { MotifRuptureModule } from './motif-rupture/motif-rupture.module';
 import { ParametreBulletinModule } from './parametre-bulletin/parametre-bulletin.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 import { SessionAuditModule } from './session-audit/session-audit.module';
 
 @Module({
@@ -51,9 +52,14 @@ import { SessionAuditModule } from './session-audit/session-audit.module';
     ConfigModule.forRoot({
       isGlobal: true, // no need to import into other modules
     }),
-    CacheModule.register({
+    CacheModule.registerAsync({
       isGlobal: true,
-      ttl: 300, // 5 minutes par défaut
+      useFactory: (config: ConfigService) => ({
+        store: redisStore,
+        url: config.get<string>('REDIS_URL'),
+        ttl: 300,
+      }),
+      inject: [ConfigService],
     }),
     BullModule.forRootAsync({
       useFactory: async (config: ConfigService) => ({

@@ -15,7 +15,7 @@ export class Employe {
     @Prop({type:String, required: true})
     nom: string;
 
-    @Prop({type: String, default: uuidv4})
+    @Prop({type: String, default: uuidv4, index: true})
     code: string;
 
     @Prop({type:String, required: true})
@@ -27,7 +27,7 @@ export class Employe {
     @Prop({type:String, required: true})
     nationalite: string;
 
-    @Prop({type:String, required: true})
+    @Prop({type:String, required: true, index: true})
     nci: string;
 
     @Prop({type:String, required: true})
@@ -45,7 +45,7 @@ export class Employe {
     @Prop({type:String})
     profile: string;
 
-    @Prop({type:Number, required: true, default: true})
+    @Prop({type:Number, required: true, default: true, index: true})
     is_actif: number;
 }
 

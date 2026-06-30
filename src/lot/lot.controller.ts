@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpException, Query, UseInterceptors, UploadedFiles, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpException, Query } from '@nestjs/common';
 import { PeriodLotStatisticsResponse } from 'src/bulletin/dto/period-lot-statistics.dto';
 import { StorageService } from 'src/storage/storage.service';
 import { LotService } from './lot.service';
@@ -35,7 +35,7 @@ import { Roles, UserHasPermission } from '@thallesp/nestjs-better-auth';
 import { readFile } from 'node:fs/promises';
 import { Types } from 'mongoose';
 // import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
-import { AnyFilesInterceptor } from '@nestjs/platform-express';
+// import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { ParametreBulletinService } from 'src/parametre-bulletin/parametre-bulletin.service';
 
 @Controller('lot')
@@ -64,92 +64,92 @@ export class LotController {
   }
  
   // @AllowAnonymous()
-  @Post('import-legacy/lots')
-  @UseInterceptors(AnyFilesInterceptor())
-  async importLegacyLots(
-    @Body() payload: any,
-    @Query('filePath') filePath?: string,
-    @Query('lotsFilePath') lotsFilePath?: string,
-    @Headers('x-file-path') headerFilePath?: string,
-    @UploadedFiles() files?: Array<Express.Multer.File>,
-  ) {
-    try {
-      const mergedPayload = this.mergeLegacyImportPayload(
-        payload,
-        { filePath, lotsFilePath },
-        headerFilePath,
-      );
-      const source = await this.resolveLegacyLotSource(mergedPayload, files);
-      const normalizedLots = source.lots.map((lot) => this.normalizeLegacyDocument(lot));
+  // @Post('import-legacy/lots')
+  // @UseInterceptors(AnyFilesInterceptor())
+  // async importLegacyLots(
+  //   @Body() payload: any,
+  //   @Query('filePath') filePath?: string,
+  //   @Query('lotsFilePath') lotsFilePath?: string,
+  //   @Headers('x-file-path') headerFilePath?: string,
+  //   @UploadedFiles() files?: Array<Express.Multer.File>,
+  // ) {
+  //   try {
+  //     const mergedPayload = this.mergeLegacyImportPayload(
+  //       payload,
+  //       { filePath, lotsFilePath },
+  //       headerFilePath,
+  //     );
+  //     const source = await this.resolveLegacyLotSource(mergedPayload, files);
+  //     const normalizedLots = source.lots.map((lot) => this.normalizeLegacyDocument(lot));
 
-      if (!normalizedLots.length) {
-        return this.buildLegacyEmptyResponse('Aucun lot detecte dans la source legacy', mergedPayload, files);
-      }
+  //     if (!normalizedLots.length) {
+  //       return this.buildLegacyEmptyResponse('Aucun lot detecte dans la source legacy', mergedPayload, files);
+  //     }
 
-      const lots = this.deduplicateLegacyLots(normalizedLots).map((lot) => this.toLegacyLotDocument(lot));
-      const lotResult = await this.lotService.upsertLegacyMany(lots);
+  //     const lots = this.deduplicateLegacyLots(normalizedLots).map((lot) => this.toLegacyLotDocument(lot));
+  //     const lotResult = await this.lotService.upsertLegacyMany(lots);
 
-      return {
-        lots: {
-          total: lots.length,
-          ...lotResult,
-        },
-      };
-    } catch (error) {
-      throw new HttpException(error.message, 500);
-    }
-  }
+  //     return {
+  //       lots: {
+  //         total: lots.length,
+  //         ...lotResult,
+  //       },
+  //     };
+  //   } catch (error) {
+  //     throw new HttpException(error.message, 500);
+  //   }
+  // }
 
   // @AllowAnonymous()
-  @Post('import-legacy/bulletins')
-  @UseInterceptors(AnyFilesInterceptor())
-  async importLegacyBulletins(
-    @Body() payload: any,
-    @Query('filePath') filePath?: string,
-    @Query('bulletinsFilePath') bulletinsFilePath?: string,
-    @Query('lotsFilePath') lotsFilePath?: string,
-    @Headers('x-file-path') headerFilePath?: string,
-    @UploadedFiles() files?: Array<Express.Multer.File>,
-  ) {
-    try {
-      const mergedPayload = this.mergeLegacyImportPayload(
-        payload,
-        { filePath, bulletinsFilePath, lotsFilePath },
-        headerFilePath,
-      );
-      const source = await this.resolveLegacyBulletinSource(mergedPayload, files);
-      const normalizedBulletins = source.bulletins.map((bulletin) => this.normalizeLegacyDocument(bulletin));
-      const normalizedLots = source.lots.map((lot) => this.normalizeLegacyDocument(lot));
+  // @Post('import-legacy/bulletins')
+  // @UseInterceptors(AnyFilesInterceptor())
+  // async importLegacyBulletins(
+  //   @Body() payload: any,
+  //   @Query('filePath') filePath?: string,
+  //   @Query('bulletinsFilePath') bulletinsFilePath?: string,
+  //   @Query('lotsFilePath') lotsFilePath?: string,
+  //   @Headers('x-file-path') headerFilePath?: string,
+  //   @UploadedFiles() files?: Array<Express.Multer.File>,
+  // ) {
+  //   try {
+  //     const mergedPayload = this.mergeLegacyImportPayload(
+  //       payload,
+  //       { filePath, bulletinsFilePath, lotsFilePath },
+  //       headerFilePath,
+  //     );
+  //     const source = await this.resolveLegacyBulletinSource(mergedPayload, files);
+  //     const normalizedBulletins = source.bulletins.map((bulletin) => this.normalizeLegacyDocument(bulletin));
+  //     const normalizedLots = source.lots.map((lot) => this.normalizeLegacyDocument(lot));
 
-      if (!normalizedBulletins.length) {
-        return this.buildLegacyEmptyResponse('Aucun bulletin detecte dans la source legacy', mergedPayload, files);
-      }
+  //     if (!normalizedBulletins.length) {
+  //       return this.buildLegacyEmptyResponse('Aucun bulletin detecte dans la source legacy', mergedPayload, files);
+  //     }
 
-      const lotIndex = new Map(
-        this.deduplicateLegacyLots(normalizedLots).map((lot) => [
-          this.toObjectId(lot._id, 'lot._id').toString(),
-          lot,
-        ]),
-      );
+  //     const lotIndex = new Map(
+  //       this.deduplicateLegacyLots(normalizedLots).map((lot) => [
+  //         this.toObjectId(lot._id, 'lot._id').toString(),
+  //         lot,
+  //       ]),
+  //     );
 
-      const bulletins = normalizedBulletins.map((bulletin) =>
-        this.toLegacyBulletinDocument(
-          bulletin,
-          lotIndex.get((bulletin.lot?._id ?? bulletin.lot)?.toString()),
-        ),
-      );
-      const bulletinResult = await this.bulletinService.upsertLegacyMany(bulletins);
+  //     const bulletins = normalizedBulletins.map((bulletin) =>
+  //       this.toLegacyBulletinDocument(
+  //         bulletin,
+  //         lotIndex.get((bulletin.lot?._id ?? bulletin.lot)?.toString()),
+  //       ),
+  //     );
+  //     const bulletinResult = await this.bulletinService.upsertLegacyMany(bulletins);
 
-      return {
-        bulletins: {
-          total: bulletins.length,
-          ...bulletinResult,
-        },
-      };
-    } catch (error) {
-      throw new HttpException(error.message, 500);
-    }
-  }
+  //     return {
+  //       bulletins: {
+  //         total: bulletins.length,
+  //         ...bulletinResult,
+  //       },
+  //     };
+  //   } catch (error) {
+  //     throw new HttpException(error.message, 500);
+  //   }
+  // }
 
   findOneImpotByVal(impots: Impot[],val: number): Impot {
       try {
@@ -166,15 +166,15 @@ export class LotController {
   }
 
   // @AllowAnonymous()
-  @Post('regenerate-pdf/:id')
-  async regeneratePdf(@Param('id') id: string) {
-    try {
-      const lot = await this.lotService.findOne(id);
-      return this.finalizeLotBulletins(lot);
-    } catch (error) {
-      throw new HttpException(error.message, 500);
-    }
-  }
+  // @Post('regenerate-pdf/:id')
+  // async regeneratePdf(@Param('id') id: string) {
+  //   try {
+  //     const lot = await this.lotService.findOne(id);
+  //     return this.finalizeLotBulletins(lot);
+  //   } catch (error) {
+  //     throw new HttpException(error.message, 500);
+  //   }
+  // }
 
   @Post('generate/:id')
   async generateBulletin(@Param('id') id: string) {
@@ -224,9 +224,14 @@ export class LotController {
     const previousLots = await this.lotService.findByAnneeAndOldMois(lot.annee, lot.mois);
 
     // Ajouter contrat_actif aux bulletins pour makeAll et récupérer pour la queue
+    const employeIds = bulletinsCreated.map(b =>
+      (b.employe as any)?._id?.toString() ?? (b.employe as any)?.toString()
+    );
+    const contratsMap = await this.contratService.findActiveByEmployes(employeIds);
+
     for (const b of bulletinsCreated) {
       const currentEmpId = (b.employe as any)?._id?.toString() ?? (b.employe as any)?.toString();
-      const contrat = await this.contratService.findActiveByEmploye(currentEmpId);
+      const contrat = contratsMap.get(currentEmpId);
       (b as any).contrat_actif = contrat;
       const olds = [];
       previousLots.forEach(r => {

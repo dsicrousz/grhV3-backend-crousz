@@ -3,10 +3,13 @@ import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './packe/http-filter';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 const logger = new Logger('Main');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use(helmet());
 
   const config = app.get(ConfigService);
   const allowedOrigins = config.get<string>('FRONTEND_URLS')?.split(',').map(url => url.trim()) || [];
